@@ -21,6 +21,33 @@ from motivation import (
 
 ROOT = Path(__file__).parent.parent
 
+
+def get_remaining_matches(schedule_path: Path | None = None,
+                          matches_path: Path | None = None) -> list[tuple[str, str, str, str, str]]:
+    """从 schedule_2026.csv 减去已赛，返回未赛的 (home, away, date, group, round_label)"""
+    if schedule_path is None:
+        schedule_path = ROOT / "data" / "raw" / "schedule_2026.csv"
+    if matches_path is None:
+        matches_path = ROOT / "data" / "raw" / "matches_2026.csv"
+
+    schedule = pd.read_csv(schedule_path, encoding="utf-8-sig")
+    if matches_path.exists():
+        played = pd.read_csv(matches_path, encoding="utf-8-sig")
+        played_pairs = set(zip(played["home_team"], played["away_team"]))
+    else:
+        played_pairs = set()
+
+    remaining = []
+    for _, row in schedule.iterrows():
+        pair = (row["home_team"], row["away_team"])
+        if pair not in played_pairs:
+            remaining.append((
+                row["home_team"], row["away_team"],
+                str(row["date"]), row["group"], row["round_label"]
+            ))
+    return remaining
+
+
 # ============================================================
 # 加载模型
 # ============================================================
@@ -80,17 +107,7 @@ def result_label(result):
 # ============================================================
 # 剩余赛程
 # ============================================================
-REMAINING = [
-    # (home, away, date, group, round_label)
-    ("Portugal", "DR Congo", "2026-06-17", "K", "第一轮"),
-    ("Uzbekistan", "Colombia", "2026-06-17", "K", "第一轮"),
-    ("England", "Croatia", "2026-06-17", "L", "第一轮"),
-    ("Ghana", "Panama", "2026-06-17", "L", "第一轮"),
-    ("Czech Republic", "South Africa", "2026-06-18", "A", "第二轮"),
-    ("Mexico", "South Korea", "2026-06-18", "A", "第二轮"),
-    ("Switzerland", "Bosnia and Herzegovina", "2026-06-18", "B", "第二轮"),
-    ("Canada", "Qatar", "2026-06-18", "B", "第二轮"),
-]
+REMAINING = get_remaining_matches()
 
 
 # ============================================================

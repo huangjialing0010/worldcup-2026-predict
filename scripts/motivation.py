@@ -166,19 +166,29 @@ KNOWN_MATCH_DATES = {
 }
 
 def load_match_history():
-    """从 matches_2026.csv 加载已赛记录 → {team: last_play_date}"""
-    csv_path = ROOT / "data" / "raw" / "matches_2026.csv"
+    """从 matches_2026.csv + schedule_2026.csv → {team: last_play_date}"""
+    import pandas as pd
     last_play = {}
+
+    # 已赛
+    csv_path = ROOT / "data" / "raw" / "matches_2026.csv"
     if csv_path.exists():
-        import pandas as pd
         df = pd.read_csv(csv_path, encoding="utf-8-sig")
         for _, row in df.iterrows():
             d = pd.Timestamp(row["date"]).date()
-            h, a = row["home_team"], row["away_team"]
-            if h not in last_play or d > last_play[h]:
-                last_play[h] = d
-            if a not in last_play or d > last_play[a]:
-                last_play[a] = d
+            for team in [row["home_team"], row["away_team"]]:
+                if team not in last_play or d > last_play[team]:
+                    last_play[team] = d
+
+    # 赛程中的未来比赛也纳入，用于计算休息日
+    schedule_path = ROOT / "data" / "raw" / "schedule_2026.csv"
+    if schedule_path.exists():
+        sched = pd.read_csv(schedule_path, encoding="utf-8-sig")
+        for _, row in sched.iterrows():
+            d = pd.Timestamp(row["date"]).date()
+            for team in [row["home_team"], row["away_team"]]:
+                if team not in last_play or d > last_play[team]:
+                    last_play[team] = d
     return last_play
 
 

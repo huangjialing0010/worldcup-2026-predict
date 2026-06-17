@@ -1,0 +1,63 @@
+name: Daily Score Update & Predict
+
+on:
+  schedule:
+    - cron: '0 3,12,18,21 * * *'
+  workflow_dispatch:
+    inputs:
+      skip_scrape:
+        description: 'Skip score scraping (use existing data)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Scrape latest scores
+        if: ${{ !inputs.skip_scrape }}
+        run: python scripts/score_scraper.py
+        env:
+          PYTHONUNBUFFERED: 1
+
+      - name: Run backtest
+        run: python scripts/elo_lambda_model.py
+        env:
+          PYTHONUNBUFFERED: 1
+
+      - name: Generate predictions
+        run: python scripts/predict_with_context.py
+        env:
+          PYTHONUNBUFFERED: 1
+
+      - name: Commit and push changes
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "auto: daily update"
+          commit_user_name: "worldcup-bot"
+          commit_user_email: "bot@worldcup-2026.local"
+          file_pattern: |
+            data/raw/matches_2026.csv
+            data/raw/scraping_log.txt
+            output/*.json
+            output/*.txt
+            output/*.csv
+          skip_dirty_check: false
+          skip_fetch: true
