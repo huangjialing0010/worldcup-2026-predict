@@ -1,0 +1,9 @@
+﻿match,group,date,round,ranks,lambdas,base_score,base_result,base_probs,adj_probs,adj_result,risk,risk_flags,notes,goals_mod
+Portugal vs DR Congo,K,2026-06-17,第一轮,#5v#46,λ2.5:0.6,2:0,主胜,H77% D15% A7%,H79% D17% A5%,主胜,,FIFA_SUSPENSION: 2月被FIFA暂停资格，5月方恢复（备战受扰）,,
+Uzbekistan vs Colombia,K,2026-06-17,第一轮,#50v#13,λ0.9:1.7,1:1,客胜,H19% D25% A56%,H19% D25% A56%,客胜,  LOW,,,
+England vs Croatia,L,2026-06-17,第一轮,#4v#18,λ1.8:0.9,1:0,主胜,H57% D24% A18%,H57% D24% A18%,主胜,  LOW,,,
+Ghana vs Panama,L,2026-06-17,第一轮,#53v#42,λ1.3:1.2,1:1,主胜,H37% D28% A35%,H37% D28% A35%,主胜,! MED,,,
+Czech Republic vs South Africa,A,2026-06-18,第二轮,#40v#60,λ1.9:0.8,1:0,主胜,H62% D23% A15%,H62% D22% A16%,主胜,,双方首轮均败→必争胜，比赛更开放,PATH: 小组第一路径略差于第二（差1）,×1.15
+Mexico vs South Korea,A,2026-06-18,第二轮,#14v#25,λ1.7:0.9,1:1,主胜,H55% D25% A20%,H51% D33% A16%,主胜,!! HIGH,双方首轮均胜→平局对双方均有利,PATH: 小组第一路径略差于第二（差1）,
+Switzerland vs Bosnia and Herzegovina,B,2026-06-18,第二轮,#19v#64,λ2.6:0.6,2:0,主胜,H80% D14% A6%,H77% D19% A4%,主胜,,双方首轮均平→赢球可掌握主动权,PATH: 小组第一路径略差于第二（差1）,
+Canada vs Qatar,B,2026-06-18,第二轮,#25v#56,λ2.2:0.7,2:0,主胜,H70% D19% A10%,H68% D24% A8%,主胜,  LOW,双方首轮均平→赢球可掌握主动权,PATH: 小组第一路径略差于第二（差1）,

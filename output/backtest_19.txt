@@ -1,0 +1,28 @@
+Match                                   Actual     Mode      Exp Result    H%    D%    A%
+-----------------------------------------------------------------------------------------------
+Mexico          vs South Africa    2:0(    H)  mode 2:0  exp 3:1    OK  81% 14% 6%
+South Korea     vs Czech Republic  2:1(    H)  mode 1:0  exp 2:1    OK  58% 24% 18%
+Canada          vs Bosnia and Herzegovina 1:1( DRAW)  mode 2:0  exp 2:1    XX  73% 18% 9%
+Qatar           vs Switzerland     1:1( DRAW)  mode 1:1  exp 1:2    XX  19% 25% 56%
+Brazil          vs Morocco         1:1( DRAW)  mode 1:1  exp 1:1    XX  46% 27% 26%
+Haiti           vs Scotland        0:1(    A)  mode 0:1  exp 1:2    OK  17% 24% 59%
+USA             vs Paraguay        4:1(    H)  mode 2:0  exp 2:1    OK  65% 21% 13%
+Australia       vs Turkey          2:0(    H)  mode 1:1  exp 1:1    OK  42% 28% 30%
+Germany         vs Curacao         7:1(    H)  mode 3:0  exp 4:0    OK  93% 6% 2%
+Ivory Coast     vs Ecuador         1:0(    H)  mode 1:1  exp 1:1    OK  38% 28% 34%
+Netherlands     vs Japan           2:2( DRAW)  mode 1:1  exp 2:1    XX  54% 26% 21%
+Sweden          vs Tunisia         5:1(    H)  mode 1:1  exp 2:1    OK  51% 26% 22%
+Belgium         vs Egypt           1:1( DRAW)  mode 1:0  exp 2:1    XX  62% 23% 15%
+Iran            vs New Zealand     2:2( DRAW)  mode 3:0  exp 3:0    XX  90% 8% 2%
+Spain           vs Cape Verde      0:0( DRAW)  mode 3:0  exp 3:0    XX  90% 8% 2%
+Saudi Arabia    vs Uruguay         1:1( DRAW)  mode 0:1  exp 1:2    XX  15% 23% 62%
+France          vs Senegal         3:1(    H)  mode 1:1  exp 2:1    OK  55% 25% 19%
+Iraq            vs Norway          1:4(    A)  mode 1:1  exp 1:1    OK  26% 27% 47%
+Argentina       vs Algeria         3:0(    H)  mode 2:0  exp 2:1    OK  67% 20% 12%
+
+Result acc: 11/19 = 57.9%
+Exact score (mode): 4/19
+Exact score (exp): 2/19
+MAE (mode): 1.84
+MAE (exp): 1.74
+Draw recall: 0/8

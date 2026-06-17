@@ -1,0 +1,189 @@
+"""
+predict_with_context.py — 带动机与场外因素修正的预测脚本
+
+= 基础 DC 泊松概率 (Rank→Lambda 模型) + 动机修正层 =
+输出：基础预测 vs 修正后预测，含风险标注和场外备注
+"""
+import sys; sys.path.insert(0, 'scripts')
+import numpy as np
+from scipy import stats
+from pathlib import Path
+from datetime import date
+import pandas as pd
+import json
+
+from model_utils import load_rankings
+from motivation import (
+    analyze_match, apply_motivation, MotivationAdjustment,
+    load_match_history, KNOWN_MATCH_DATES, TEAM_GROUP,
+    get_adjusted_rank, get_ranking_note
+)
+
+ROOT = Path(__file__).parent.parent
+
+# ============================================================
+# 加载模型
+# ============================================================
+params = json.load(open(ROOT / "output" / "rank_lambda_model.json", encoding="utf-8"))
+alpha = params["alpha"]
+beta = params["beta"]
+gamma = params["gamma"]
+rho = params["rho"]
+
+rankings = load_rankings()
+last_play = load_match_history()
+wc_df = pd.read_csv(ROOT / "data" / "raw" / "matches_2026.csv", encoding="utf-8-sig")
+
+
+# ============================================================
+# DC 预测函数（同 elo_lambda_model.py）
+# ============================================================
+def dc_predict(home, away, max_g=10):
+    rk_h = get_adjusted_rank(home, rankings)
+    rk_a = get_adjusted_rank(away, rankings)
+    rd = (rk_a - rk_h) / 100.0
+
+    lh = np.exp(alpha + beta * rd + gamma)
+    la = np.exp(alpha - beta * rd)
+    lh = np.clip(lh, 0.05, 15.0)
+    la = np.clip(la, 0.05, 15.0)
+
+    p_h, p_d, p_a = 0.0, 0.0, 0.0
+    best_prob, best_h, best_a = -1, 0, 0
+
+    for i in range(max_g + 1):
+        for j in range(max_g + 1):
+            prob = stats.poisson.pmf(i, lh) * stats.poisson.pmf(j, la)
+            if i == 0 and j == 0:      prob *= (1 - lh * la * rho)
+            elif i == 0 and j == 1:    prob *= (1 + lh * rho)
+            elif i == 1 and j == 0:    prob *= (1 + la * rho)
+            elif i == 1 and j == 1:    prob *= (1 - rho)
+
+            if i > j: p_h += prob
+            elif i == j: p_d += prob
+            else: p_a += prob
+
+            if prob > best_prob:
+                best_prob, best_h, best_a = prob, i, j
+
+    total = p_h + p_d + p_a
+    if total > 0: p_h /= total; p_d /= total; p_a /= total
+
+    result = "HOME" if p_h >= max(p_d, p_a) else ("DRAW" if p_d >= max(p_h, p_a) else "AWAY")
+    return result, best_h, best_a, (p_h, p_d, p_a), (lh, la)
+
+
+def result_label(result):
+    return {"HOME": "主胜", "DRAW": "平局", "AWAY": "客胜"}[result]
+
+
+# ============================================================
+# 剩余赛程
+# ============================================================
+REMAINING = [
+    # (home, away, date, group, round_label)
+    ("Portugal", "DR Congo", "2026-06-17", "K", "第一轮"),
+    ("Uzbekistan", "Colombia", "2026-06-17", "K", "第一轮"),
+    ("England", "Croatia", "2026-06-17", "L", "第一轮"),
+    ("Ghana", "Panama", "2026-06-17", "L", "第一轮"),
+    ("Czech Republic", "South Africa", "2026-06-18", "A", "第二轮"),
+    ("Mexico", "South Korea", "2026-06-18", "A", "第二轮"),
+    ("Switzerland", "Bosnia and Herzegovina", "2026-06-18", "B", "第二轮"),
+    ("Canada", "Qatar", "2026-06-18", "B", "第二轮"),
+]
+
+
+# ============================================================
+# 主程序
+# ============================================================
+if __name__ == "__main__":
+    print("=" * 95)
+    print("  2026 世界杯预测 — Rank→Lambda DC + 动机/场外因素修正")
+    print("=" * 95)
+
+    lines = []
+    for home, away, match_date, group, round_label in REMAINING:
+        # 基础DC预测
+        result, ph, pa, (p_h, p_d, p_a), (lh, la) = dc_predict(home, away)
+
+        # 动机分析
+        adj = analyze_match(home, away, match_date, group, wc_df, last_play)
+
+        # 修正后概率
+        adj_h, adj_d, adj_a = apply_motivation((p_h, p_d, p_a), adj)
+
+        # 修正后预测
+        if adj_h >= max(adj_d, adj_a):
+            adj_result = "HOME"
+        elif adj_d >= max(adj_h, adj_a):
+            adj_result = "DRAW"
+        else:
+            adj_result = "AWAY"
+
+        # 风险等级
+        if adj_d >= 0.30:
+            risk_level = "!! HIGH"
+        elif adj_d >= 0.25:
+            risk_level = "! MED"
+        elif adj_d >= 0.22:
+            risk_level = "  LOW"
+        else:
+            risk_level = ""
+
+        # 输出
+        rk_h = get_adjusted_rank(home, rankings)
+        rk_a = get_adjusted_rank(away, rankings)
+        raw_rk_h = rankings.get(home, 50)
+        raw_rk_a = rankings.get(away, 50)
+
+        # 排名修正备注
+        rank_note_h = get_ranking_note(home)
+        rank_note_a = get_ranking_note(away)
+
+        lines.append({
+            "match": f"{home} vs {away}",
+            "group": group,
+            "date": match_date,
+            "round": round_label,
+            "ranks": f"#{rk_h}v#{rk_a}",
+            "lambdas": f"λ{lh:.1f}:{la:.1f}",
+            "base_score": f"{ph}:{pa}",
+            "base_result": result_label(result),
+            "base_probs": f"H{p_h:.0%} D{p_d:.0%} A{p_a:.0%}",
+            "adj_probs": f"H{adj_h:.0%} D{adj_d:.0%} A{adj_a:.0%}",
+            "adj_result": result_label(adj_result),
+            "risk": risk_level,
+            "risk_flags": " | ".join(adj.risk_flags[:3]) if adj.risk_flags else "",
+            "notes": " | ".join(adj.notes[:2]) if adj.notes else "",
+            "goals_mod": f"×{adj.expected_goals_mod:.2f}" if adj.expected_goals_mod != 1.0 else "",
+        })
+
+        rank_display = f"#{raw_rk_h}→#{rk_h} vs #{raw_rk_a}→#{rk_a}" if (raw_rk_h != rk_h or raw_rk_a != rk_a) else f"#{rk_h} vs #{rk_a}"
+        print(f"\n{'─'*95}")
+        print(f"  {home} vs {away}  [{group}组 {round_label}  {match_date}]  {rank_display}")
+        print(f"  DC基础: {result_label(result)} {ph}:{pa}  λ{lh:.1f}:{la:.1f}  H{p_h:.0%}/D{p_d:.0%}/A{p_a:.0%}")
+        print(f"  修正后: {result_label(adj_result)}  H{adj_h:.0%}/D{adj_d:.0%}/A{adj_a:.0%}  {risk_level}" +
+              (f" 进球×{adj.expected_goals_mod:.2f}" if adj.expected_goals_mod != 1.0 else ""))
+
+        if rank_note_h:
+            print(f"    [R] {rank_note_h}")
+        if rank_note_a:
+            print(f"    [R] {rank_note_a}")
+        if adj.risk_flags:
+            for flag in adj.risk_flags[:5]:
+                print(f"    [!] {flag}")
+        if adj.notes:
+            for note in adj.notes[:3]:
+                print(f"    [i] {note}")
+
+    # CSV 输出
+    out_df = pd.DataFrame(lines)
+    out_path = ROOT / "output" / "predictions_with_context.csv"
+    out_df.to_csv(out_path, index=False, encoding="utf-8-sig")
+    print(f"\n{'='*95}")
+    print(f"  已保存: {out_path}")
+
+    # 汇总
+    print(f"\n  共 {len(REMAINING)} 场比赛预测")
+    risk_count = sum(1 for l in lines if l["risk"] in ("!! HIGH", "! MED"))
+    print(f"  其中 {risk_count} 场有平局风险标注")

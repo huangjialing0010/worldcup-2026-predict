@@ -1,0 +1,50 @@
+{
+  "model": "PoissonRegression",
+  "features": [
+    "intercept",
+    "elo_h/100",
+    "elo_a/100",
+    "h_win5",
+    "a_win5",
+    "h_gf5",
+    "h_ga5",
+    "a_gf5",
+    "a_ga5",
+    "h2h_n",
+    "h2h_h_winrate"
+  ],
+  "coefficients": {
+    "home_coef": {
+      "intercept": -0.0103,
+      "elo_h/100": 0.1251,
+      "elo_a/100": -0.1126,
+      "h_win5": -0.0871,
+      "a_win5": 0.2508,
+      "h_gf5": 0.1275,
+      "h_ga5": -0.0452,
+      "a_gf5": -0.2025,
+      "a_ga5": 0.1082,
+      "h2h_n": -0.0289,
+      "h2h_h_winrate": 0.0225
+    },
+    "away_coef": {
+      "intercept": -0.6589,
+      "elo_h/100": -0.13,
+      "elo_a/100": 0.1695,
+      "h_win5": 0.2752,
+      "a_win5": -0.0858,
+      "h_gf5": -0.0746,
+      "h_ga5": 0.1431,
+      "a_gf5": 0.1208,
+      "a_ga5": -0.0399,
+      "h2h_n": -0.0341,
+      "h2h_h_winrate": -0.0403
+    }
+  },
+  "train_accuracy": 58.3,
+  "test_accuracy": 50.0,
+  "baseline_accuracy": 58.3,
+  "improvement_pp": -8.3,
+  "n_train": 4568,
+  "n_test": 12
+}

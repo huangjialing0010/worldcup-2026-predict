@@ -1,0 +1,30 @@
+{
+  "poisson": {
+    "avg_goals": 2.33,
+    "scale": 240,
+    "home_advantage": 1.34,
+    "max_goals": 9
+  },
+  "poisson_cv_accuracy": 56.2,
+  "poisson_original_accuracy": 50.0,
+  "elo": {
+    "rank_weight": 4.0,
+    "home_bias": 45,
+    "draw_coeff": 0.35,
+    "draw_decay": 727,
+    "draw_power": 1.4
+  },
+  "elo_neutral": {
+    "rank_weight": 4.0,
+    "home_bias": 26,
+    "draw_coeff": 0.35,
+    "draw_decay": 727,
+    "draw_power": 1.4,
+    "description": "中立场赛事(World Cup/Euro/Copa America等)使用，主场偏见降低约20点"
+  },
+  "elo_cv_accuracy": 53.8,
+  "elo_original_accuracy": 50.0,
+  "n_matches": 4580,
+  "tuning_method": "time-split (pre-2026 train, 2026 WC test)",
+  "note": "训练集提升+3.8pp(50.0→53.8)。12场WC测试太小无法验证。中立场home_bias从45→26。"
+}

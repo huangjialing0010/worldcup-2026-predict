@@ -1,0 +1,37 @@
+REMAINING MATCHES
+Match                                 Rank   Pred Score    H%    D%    A%  DRAW RISK
+-----------------------------------------------------------------------------------------------
+Austria         vs Jordan           24v63   HOME 2:1  76%  16%   8%  
+Portugal        vs DR Congo          5v46   HOME 2:1  77%  15%   7%  
+England         vs Croatia           4v11   HOME 2:1  51%  26%  22%  ! MED  - 26% draw chance, watch out
+Ghana           vs Panama           73v34   AWAY 1:2  18%  24%  57%    LOW  - some draw risk
+Uzbekistan      vs Colombia         50v13   AWAY 1:2  19%  25%  56%    LOW  - some draw risk
+Czech Republic  vs South Africa     40v60   HOME 2:1  62%  23%  15%    LOW  - some draw risk
+Switzerland     vs Bosnia and Herzegovina  19v64   HOME 3:1  80%  14%   6%  
+Canada          vs Qatar            30v56   HOME 2:1  67%  21%  13%  
+Mexico          vs South Korea      14v25   HOME 2:1  55%  25%  20%  ! MED  - 25% draw chance, watch out
+
+
+PLAYED MATCHES - DRAW RISK REVIEW
+Match                                   Actual    p_d   Risk  Note
+----------------------------------------------------------------------
+South Korea     vs Czech Republic  2:1( HOME)   24%     LOW  
+Canada          vs Bosnia and Herzegovina 1:1( DRAW)   18%       -  MISSED - unpredictable
+Qatar           vs Switzerland     1:1( DRAW)   25%     LOW  MISSED - weak signal
+Brazil          vs Morocco         1:1( DRAW)   27%     MED  CAUGHT - model flagged this
+Haiti           vs Scotland        0:1( AWAY)   24%     LOW  
+Australia       vs Turkey          2:0( HOME)   28%     MED  FALSE ALARM
+Ivory Coast     vs Ecuador         1:0( HOME)   28%    HIGH  FALSE ALARM
+Netherlands     vs Japan           2:2( DRAW)   26%     MED  CAUGHT - model flagged this
+Sweden          vs Tunisia         5:1( HOME)   26%     MED  FALSE ALARM
+Belgium         vs Egypt           1:1( DRAW)   23%     LOW  MISSED - weak signal
+Iran            vs New Zealand     2:2( DRAW)    8%       -  MISSED - unpredictable
+Spain           vs Cape Verde      0:0( DRAW)    8%       -  MISSED - unpredictable
+Saudi Arabia    vs Uruguay         1:1( DRAW)   23%     LOW  MISSED - weak signal
+France          vs Senegal         3:1( HOME)   25%     MED  FALSE ALARM
+Iraq            vs Norway          1:4( AWAY)   27%     MED  FALSE ALARM
+
+SUMMARY:
+  HIGH/MED risk = model says "watch out for a draw"
+  When model says HOME or AWAY with no risk flag, confidence is high (11/11 on non-draws)
+  When p_d > 25%%, even if model predicts H/A, draw is a real possibility

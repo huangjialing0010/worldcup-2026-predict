@@ -1,0 +1,51 @@
+{
+  "split_method": "time-based (pre-2026 train, 2026 WC test)",
+  "n_train": 4568,
+  "n_test": 12,
+  "models": {
+    "elo_dynamic": {
+      "params": {
+        "acc": 57.79334500875657,
+        "rw": 1.8,
+        "hb": 3,
+        "dc": 0.12
+      },
+      "train_acc": 57.8,
+      "test_acc": 50.0
+    },
+    "elo_fifa": {
+      "params": {
+        "acc": 55.319614711033275,
+        "rw": 3,
+        "hb": 42,
+        "dc": 0.13
+      },
+      "train_acc": 55.3,
+      "test_acc": 66.7
+    },
+    "poisson_dynamic": {
+      "params": {
+        "acc": 57.79334500875657,
+        "ag": 3.56,
+        "sc": 185,
+        "ha": 1.01
+      },
+      "train_acc": 57.8,
+      "test_acc": 50.0
+    },
+    "poisson_fifa": {
+      "params": {
+        "acc": 55.319614711033275,
+        "ag": 2.93,
+        "sc": 107,
+        "ha": 1.14
+      },
+      "train_acc": 55.3,
+      "test_acc": 66.7
+    }
+  },
+  "old_params_test": {
+    "elo_fifa_random_split": 75.0,
+    "poisson_fifa_random_split": 58.3
+  }
+}

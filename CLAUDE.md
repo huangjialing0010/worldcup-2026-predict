@@ -1,0 +1,135 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## 项目概述
+
+2026 世界杯比分预测与回测分析。活跃追踪中——每天更新赛果、追踪预测准确率。
+
+## 当前状态 (2026-06-17)
+
+**已赛 20 场，预测准确率 60.0%（12/20），非平局比赛 100%（12/12），平局 0/8。**
+
+当前最佳模型：**Rank→Lambda DC** (`scripts/elo_lambda_model.py`)
+- 用 FIFA 排名计算期望进球 λ，不经过排名压缩（λ 范围 0.4–4.1）
+- Dixon-Coles τ 修正低比分相关性
+- 参数: alpha=0.0689, beta=1.277, gamma=0.3158, rho=-0.05185
+- 参数文件: `output/rank_lambda_model.json`
+
+### 动机修正层（NEW: 2026-06-17）
+
+新增 `scripts/motivation.py` + `scripts/predict_with_context.py`，在 DC 泊松概率上叠加四层修正：
+
+| 层级 | 因子 | 示例 |
+|------|------|------|
+| A. 赛制路径 | 小组第一/第二去不同半区，下半区（阿根廷/巴西/英格兰）明显强于上半区 | 墨西哥vs韩国：A1去下半区更差 → 平局上浮8pp |
+| B. 体能 | 休息天数差≥2天 → 优势方+3~6% | 第二轮自动计算 |
+| C. 积分形势 | 双方均胜→可接受平局；双方均败→必争胜 | 0分队对战进球×1.15 |
+| D. 地缘政治 | 伊朗-美国战争、旅行禁令、FIFA暂停 | 伊朗胜率-12% |
+
+**关键地缘背景（当前世界杯）：**
+- **伊朗**: 2/28美以空袭伊朗，6/14刚签和平协议。训练营迁至墨西哥蒂华纳，不能在美国停留超48h，球迷票被取消。已影响表现：2-2平新西兰（排名85）
+- **海地/科特迪瓦/塞内加尔**: 在美旅行禁令名单
+- **刚果(金)**: 2月被FIFA暂停资格，5月恢复
+
+### 模型演化历程
+
+| 版本 | 准确率 | 核心问题 |
+|------|--------|---------|
+| 旧ELO (FIFA排名, 随机切分) | 56.2%→75% | 数据泄露（调参包含了测试集） |
+| 旧集成 (Poisson+ELO+DC加权) | 43.8% | DC拖后腿，权重公式错误 |
+| 修复集成 (Poisson+ELO 50/50) | 52.1% | 全量数据，比分全是1:1/2:1 |
+| **Rank→Lambda DC (当前)** | **60.0%** | 比分多样化(0:1–4:0)，平局仍0% |
+| + motivation 修正层 | 待验证 | 解决赛制/体能/积分/地缘盲区 |
+
+### 平局风险标注系统
+
+- 风险 LOW/NONE → 模型判胜负可信度 100%（当前12/12）
+- 风险 MED/HIGH → 平局概率约29%，胜负仅供参考
+- 8场平局中：2场被预警、3场有微弱信号、3场完全无法预测
+
+### 已知局限
+
+1. **平局预测 0%** — 泊松框架下平局永远不是概率最大值，这是理论极限
+2. **比分 MAE 1.85** — 极端比分（7:1）无法预测
+3. ~~纯排名比较器~~ → 已加 motivation 层，但仍缺动态ELO更新
+4. **淘汰赛预测力未知** — 小组赛快结束，淘汰赛需要升级
+5. **地缘因素权重未经回测校准** — motivation 修正量为经验估计
+
+## 目录结构
+
+```
+data/raw/               # 原始数据
+  matches_2026.csv      # 2026世界杯赛果（手动更新，19场）
+  odds_round1.csv       # 第一轮赔率
+  historical_matches.csv # 历史比赛
+data/processed/         # 清洗后数据
+  matches.csv           # 4580场历史比赛
+  teams.csv             # 球队排名
+scripts/                # 核心脚本
+  model_utils.py        # 共享工具函数、数据加载
+  models.py             # OptimizedPoisson, OptimizedELO, DixonColes
+  ensemble.py           # EnsemblePredictor (Poisson+ELO 50/50)
+  elo_lambda_model.py   # ★ 当前最佳: Rank→Lambda DC 模型
+  motivation.py         # ★ 动机修正: 赛制路径/体能/积分/地缘政治
+  predict_with_context.py # ★ 带动机修正的预测脚本
+  backtest.py           # 全量回测脚本
+  predict.py            # 命令行预测工具
+  build_features.py     # 动态ELO + 近期状态特征
+  fair_compare.py       # 时间切分公平对比
+  optimize_venue_draw.py # 中立场+平局参数优化
+  dc_team_model.py      # Dixon-Coles 球队级参数（实验性）
+  train_model.py        # 泊松回归模型（效果不如简单模型）
+  predict_upcoming.py   # 旧赛程预测（已过时，用predict_with_context.py替代）
+output/                 # 输出文件
+  rank_lambda_model.json # ★ 当前模型参数
+  best_params.json       # 旧模型参数（有数据泄露）
+  features.csv           # 特征表（4580场，含ELO+状态）
+  predictions.csv        # 预测结果
+  backtest_19.txt        # 19场回测详细
+  final_backtest.txt     # 最终回测汇总
+  predictions_with_risk.txt # 带平局风险的预测
+  upcoming_predictions.csv  # 剩余赛程预测（旧）
+  predictions_with_context.csv # ★ 带动机修正的预测
+```
+
+## 常用命令
+
+```bash
+pip install -r requirements.txt
+
+# 回测所有已赛比赛（更新准确率）
+python scripts/elo_lambda_model.py
+
+# 带动机修正的预测（赛程/体能/积分/地缘）
+python scripts/predict_with_context.py
+
+# 动机模块独立测试（积分榜+地缘+休息日）
+python scripts/motivation.py
+
+# 重新拟合模型（有新数据时）
+python scripts/elo_lambda_model.py
+```
+
+## 赛后更新流程
+
+1. 用户告知比分
+2. 追加到 `data/raw/matches_2026.csv`
+3. 运行 `python scripts/elo_lambda_model.py` 更新回测
+4. 运行 `python scripts/predict_with_context.py` 更新预测
+5. 如有需要，重新拟合模型参数
+
+## 技术约定
+
+- Python 3.11+, scipy, numpy, pandas
+- 所有脚本从项目根目录 `D:\世界杯` 运行
+- CSV 用 UTF-8 with BOM
+- 中立场赛事: FIFA World Cup, UEFA Euro, Copa America, AFC Asian Cup, African Cup of Nations, Gold Cup, OFC Nations Cup
+
+## 下一步
+
+1. 追踪 6/17 K+L 组首轮（4场）+ 6/18 A+B 组第二轮（4场）
+2. 用 motivation 模块的平局预警（墨vs韩 !!HIGH）验证实际赛果
+3. 校准动机修正权重（需要足够样本量）
+4. 淘汰赛阶段：加休息天数差异（间隔短、体能差显著）
+5. 淘汰赛平局→加时→点球建模
