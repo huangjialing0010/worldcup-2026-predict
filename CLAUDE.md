@@ -60,8 +60,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```
 data/raw/               # 原始数据
-  matches_2026.csv      # 2026世界杯赛果（手动更新，19场）
+  matches_2026.csv      # 2026世界杯赛果（手动+自动更新，20场）
+  schedule_2026.csv     # ★ 完整赛程（72场小组赛+32场淘汰赛框架）
   odds_round1.csv       # 第一轮赔率
+  scraping_log.txt      # 爬虫运行日志
   historical_matches.csv # 历史比赛
 data/processed/         # 清洗后数据
   matches.csv           # 4580场历史比赛
@@ -72,7 +74,8 @@ scripts/                # 核心脚本
   ensemble.py           # EnsemblePredictor (Poisson+ELO 50/50)
   elo_lambda_model.py   # ★ 当前最佳: Rank→Lambda DC 模型
   motivation.py         # ★ 动机修正: 赛制路径/体能/积分/地缘政治
-  predict_with_context.py # ★ 带动机修正的预测脚本
+  predict_with_context.py # ★ 带动机修正的预测（动态赛程）
+  score_scraper.py      # ★ Wikipedia 比分爬虫（GitHub Actions 自动运行）
   backtest.py           # 全量回测脚本
   predict.py            # 命令行预测工具
   build_features.py     # 动态ELO + 近期状态特征
@@ -81,6 +84,8 @@ scripts/                # 核心脚本
   dc_team_model.py      # Dixon-Coles 球队级参数（实验性）
   train_model.py        # 泊松回归模型（效果不如简单模型）
   predict_upcoming.py   # 旧赛程预测（已过时，用predict_with_context.py替代）
+.github/workflows/      # ★ GitHub Actions 自动化
+  daily-update.yml      # 每天4次: 爬比分→回测→预测→推送
 output/                 # 输出文件
   rank_lambda_model.json # ★ 当前模型参数
   best_params.json       # 旧模型参数（有数据泄露）
@@ -101,8 +106,11 @@ pip install -r requirements.txt
 # 回测所有已赛比赛（更新准确率）
 python scripts/elo_lambda_model.py
 
-# 带动机修正的预测（赛程/体能/积分/地缘）
+# 带动机修正的预测（动态从 schedule_2026.csv 计算剩余场次）
 python scripts/predict_with_context.py
+
+# 手动爬比分（通常由 GitHub Actions 自动运行）
+python scripts/score_scraper.py
 
 # 动机模块独立测试（积分榜+地缘+休息日）
 python scripts/motivation.py
@@ -110,6 +118,17 @@ python scripts/motivation.py
 # 重新拟合模型（有新数据时）
 python scripts/elo_lambda_model.py
 ```
+
+## 自动化 (GitHub Actions)
+
+`.github/workflows/daily-update.yml` 每天 4 次 (UTC 3/12/18/21) 自动执行:
+1. `score_scraper.py` — 从 Wikipedia 抓取比分
+2. `elo_lambda_model.py` — 回测更新准确率
+3. `predict_with_context.py` — 生成新预测
+4. 自动 commit + push
+
+手动触发: `gh workflow run daily-update.yml`
+验证: 看 GitHub commit 历史是否有 `auto: daily update` 提交
 
 ## 赛后更新流程
 
