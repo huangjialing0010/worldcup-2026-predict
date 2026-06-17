@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from datetime import date, timedelta
 import json
+from model_utils import load_rankings as _load_fifa_rankings
 
 ROOT = Path(__file__).parent.parent
 
@@ -382,19 +383,83 @@ def analyze_match(home, away, match_date, group, matches_df, last_play=None):
     away_md = matchday_number(away, standings)
     md = max(home_md, away_md)
 
-    # --- A. 赛制路径（仅第二轮起有意义） ---
-    if md >= 2 and group:
+    # --- A. 赛制路径 + 已赛信息（晚踢的队看着前面结果踢） ---
+    if group:
         _, _, h1_diff = knockout_path_desirability(group, "1st")
         _, _, h2_diff = knockout_path_desirability(group, "2nd")
-        path_gap = h2_diff - h1_diff  # 正值 = 第二路径更好（即小组第一反而吃亏）
+        path_gap = h2_diff - h1_diff  # 正值 = 第二路径更好
 
-        # 如果小组第一路径明显更差，平局概率微升
-        if path_gap >= 2:
-            adj.draw_uplift += 0.04
-            adj.notes.append(f"PATH: 小组第一去{'下半区' if KNOCKOUT_PATH[group]['1st']['half']=='LOWER' else '上半区'}（艰难），第二反而更轻松（+{path_gap}）")
-        elif path_gap >= 1:
-            adj.draw_uplift += 0.02
-            adj.notes.append(f"PATH: 小组第一路径略差于第二（差{path_gap}）")
+        if md == 1:
+            raw_rk = _load_fifa_rankings()
+            adj_h = get_adjusted_rank(home, raw_rk)
+            adj_a = get_adjusted_rank(away, raw_rk)
+            rank_diff = abs(adj_h - adj_a)
+
+            # A1. 后发优势：晚踢的队看完了前面所有结果
+            matches_played = len(matches_df) if matches_df is not None else 0
+            if matches_played >= 16:
+                draws = 0; upsets = 0; upset_opps = 0
+                for _, r in matches_df.iterrows():
+                    hg, ag = int(r["home_score"]), int(r["away_score"])
+                    if hg == ag: draws += 1
+                    h_rk = raw_rk.get(r["home_team"], 50)
+                    a_rk = raw_rk.get(r["away_team"], 50)
+                    if abs(h_rk - a_rk) >= 30:
+                        upset_opps += 1
+                        if (h_rk < a_rk and hg <= ag) or (h_rk > a_rk and ag <= hg):
+                            upsets += 1
+
+                draw_rate = draws / matches_played
+                upset_rate = upsets / max(1, upset_opps)
+                if upset_opps == 0: upset_rate = 0.15
+
+                # 平局率远高于25% → 首战平局没那么糟
+                if draw_rate >= 0.35:
+                    adj.draw_uplift += 0.03
+                    adj.notes.append(f"INFO: 已赛{matches_played}场平局率{draw_rate:.0%}（>25%），首战平局可接受")
+
+                # 强队翻车率高 → 不能掉以轻心
+                if upset_rate >= 0.25:
+                    adj.draw_uplift += 0.02
+                    adj.notes.append(f"INFO: 排名差>30的翻车率{upset_rate:.0%}，强弱不再绝对")
+
+                # A2. R32对手可见度：小组第一的对手现在是什么水平
+                if abs(path_gap) <= 1:
+                    w_path = KNOCKOUT_PATH.get(group, {}).get("1st", {})
+                    opponent_from = w_path.get("from", [])
+                    weak_opps = 0; total_opps = 0
+                    for og in opponent_from:
+                        for team in GROUPS_2026.get(og, []):
+                            s = standings.get(og, {}).get(team, {})
+                            if s:
+                                total_opps += 1
+                                if s.get("pts", 99) <= 1:
+                                    weak_opps += 1
+                    if total_opps >= 6:
+                        weak_ratio = weak_opps / total_opps
+                        if weak_ratio >= 0.6:
+                            adj.expected_goals_mod *= 1.10
+                            adj.home_boost += 0.02
+                            adj.notes.append(f"R32: 小组第一潜在对手{weak_opps}/{total_opps}仅0-1分→路径很好，有动力")
+
+            # A3. 强队路径选择：排名差大时调整发力
+            if rank_diff >= 30:
+                if path_gap <= -2:
+                    adj.expected_goals_mod *= 1.15
+                    adj.notes.append(f"PATH: 小组第一路径更优（gap={path_gap}），强队刷净胜球")
+                elif path_gap >= 2:
+                    adj.expected_goals_mod *= 0.85
+                    adj.notes.append(f"PATH: 小组第一路径明显更差（gap={path_gap}），强队领先后收力")
+                # gap在-1到+1之间：路径差异不大，看A2的R32分析
+
+        elif md >= 2:
+            # 第二轮起：积分形势 + 路径差异共同作用
+            if path_gap >= 2:
+                adj.draw_uplift += 0.04
+                adj.notes.append(f"PATH: 小组第一去{'下半区' if KNOCKOUT_PATH[group]['1st']['half']=='LOWER' else '上半区'}（艰难），第二更轻松（+{path_gap}）")
+            elif path_gap >= 1:
+                adj.draw_uplift += 0.02
+                adj.notes.append(f"PATH: 小组第一路径略差于第二（差{path_gap}）")
 
     # --- B. 休息天数 ---
     if last_play is None:
