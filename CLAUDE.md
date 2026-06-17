@@ -132,11 +132,12 @@ python scripts/elo_lambda_model.py
 
 ## 赛后更新流程
 
-1. 用户告知比分
-2. 追加到 `data/raw/matches_2026.csv`
-3. 运行 `python scripts/elo_lambda_model.py` 更新回测
-4. 运行 `python scripts/predict_with_context.py` 更新预测
-5. 如有需要，重新拟合模型参数
+**自动（推荐）：** GitHub Actions 自动爬 Wikipedia → 回测 → 预测 → 推送，无需手动。
+
+**手动：**
+1. 更新 `data/raw/matches_2026.csv`（或运行 `python scripts/score_scraper.py` 自动爬）
+2. 运行 `python scripts/elo_lambda_model.py` 更新回测
+3. 运行 `python scripts/predict_with_context.py` 更新预测
 
 ## 技术约定
 
@@ -147,8 +148,8 @@ python scripts/elo_lambda_model.py
 
 ## 下一步
 
-1. 追踪 6/17 K+L 组首轮（4场）+ 6/18 A+B 组第二轮（4场）
-2. 用 motivation 模块的平局预警（墨vs韩 !!HIGH）验证实际赛果
-3. 校准动机修正权重（需要足够样本量）
-4. 淘汰赛阶段：加休息天数差异（间隔短、体能差显著）
-5. 淘汰赛平局→加时→点球建模
+1. 等 6/17 K+L 组赛果（Wikipedia 自动抓取）
+2. 6/18 A+B 组第二轮 — 验证 motivation 层的积分形势逻辑
+3. 累计 30+ 场后校准动机修正权重
+4. 淘汰赛建模：休息天数差、加时→点球、单场淘汰心理因素
+5. 淘汰赛对阵动态生成（schedule_2026.csv 目前只有小组赛）
