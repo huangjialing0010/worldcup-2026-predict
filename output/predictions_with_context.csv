@@ -1,5 +1,5 @@
 ﻿match,group,date,round,ranks,lambdas,base_score,base_result,base_probs,motiv_probs,final_probs,final_result,odds_blend,draw_override,risk,risk_flags,notes,goals_mod
-Uzbekistan vs Colombia,K,2026-06-17,第一轮,#50v#13,λ1.0:1.5,1:1,客胜,H26% D27% A47%,H23% D32% A45%,H23% D32% A45%,平局,N,Y,!! HIGH,,INFO: 已赛22场平局率41%（>25%），首战平局可接受 | INFO: 排名差>30的翻车率60%，强弱不再绝对,
+Uzbekistan vs Colombia,K,2026-06-17,第一轮,#50v#13,λ1.0:1.5,1:1,客胜,H26% D27% A47%,H23% D32% A45%,H19% D28% A53%,平局,Y,Y,! MED,,INFO: 已赛22场平局率41%（>25%），首战平局可接受 | INFO: 排名差>30的翻车率60%，强弱不再绝对,
 Ghana vs Panama,L,2026-06-17,第一轮,#53v#42,λ1.3:1.2,1:1,主胜,H37% D28% A35%,H36% D33% A31%,H36% D33% A31%,平局,N,Y,!! HIGH,,INFO: 已赛22场平局率41%（>25%），首战平局可接受 | INFO: 排名差>30的翻车率60%，强弱不再绝对,×1.10
 Czech Republic vs South Africa,A,2026-06-18,第二轮,#40v#60,λ1.8:0.9,1:0,主胜,H60% D23% A16%,H61% D22% A17%,H59% D23% A18%,主胜,Y,,  LOW,双方首轮均败→必争胜，比赛更开放,PATH: 小组第一路径略差于第二（差1）,×1.15
 Mexico vs South Korea,A,2026-06-18,第二轮,#14v#25,λ1.7:0.9,1:1,主胜,H54% D25% A20%,H50% D33% A16%,H50% D32% A18%,平局,Y,Y,!! HIGH,双方首轮均胜→平局对双方均有利,PATH: 小组第一路径略差于第二（差1）,
