@@ -125,14 +125,14 @@ def apply_draw_detector(current_result, adj_d, draw_uplift):
 # ============================================================
 # DC 预测函数（同 elo_lambda_model.py）
 # ============================================================
-def dc_predict(home, away, max_g=10):
+def dc_predict(home, away, max_g=10, goals_mod=1.0):
     e_h = ELO_DICT.get(home, 1500)
     e_a = ELO_DICT.get(away, 1500)
     rd_raw = (e_h - e_a) / ELO_SCALE  # positive = home stronger
     rd = np.tanh(rd_raw * 3.0) / 3.0  # soft saturation
 
-    lh = np.exp(alpha + beta * rd + gamma)
-    la = np.exp(alpha - beta * rd)
+    lh = np.exp(alpha + beta * rd + gamma) * goals_mod
+    la = np.exp(alpha - beta * rd) * goals_mod
     lh = np.clip(lh, 0.05, 15.0)
     la = np.clip(la, 0.05, 15.0)
 
@@ -181,11 +181,11 @@ if __name__ == "__main__":
 
     lines = []
     for home, away, match_date, group, round_label in REMAINING:
-        # 基础DC预测
-        result, ph, pa, (p_h, p_d, p_a), (lh, la) = dc_predict(home, away)
-
-        # 动机分析
+        # 动机分析（提前获取 goals_mod）
         adj = analyze_match(home, away, match_date, group, wc_df, last_play)
+
+        # DC预测（goals_mod 直接作用于 λ）
+        result, ph, pa, (p_h, p_d, p_a), (lh, la) = dc_predict(home, away, goals_mod=adj.expected_goals_mod)
 
         # 修正后概率
         adj_h, adj_d, adj_a = apply_motivation((p_h, p_d, p_a), adj)
