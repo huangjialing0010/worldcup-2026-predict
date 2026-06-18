@@ -123,7 +123,6 @@ def predict(home, away, max_g=10):
     la = np.clip(la, 0.05, 15.0)
 
     p_h, p_d, p_a = 0.0, 0.0, 0.0
-    best_prob, best_h, best_a = -1, 0, 0
 
     for i in range(max_g + 1):
         for j in range(max_g + 1):
@@ -137,13 +136,11 @@ def predict(home, away, max_g=10):
             elif i == j: p_d += prob
             else: p_a += prob
 
-            if prob > best_prob:
-                best_prob, best_h, best_a = prob, i, j
-
     total = p_h + p_d + p_a
     if total > 0: p_h /= total; p_d /= total; p_a /= total
 
     result = "H" if p_h >= max(p_d, p_a) else ("D" if p_d >= max(p_h, p_a) else "A")
+    best_h, best_a = round(lh), round(la)
     return result, best_h, best_a, (p_h, p_d, p_a), (lh, la)
 
 
