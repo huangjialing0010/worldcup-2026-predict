@@ -288,15 +288,15 @@ if __name__ == "__main__":
     # 中文列名 + 精简列
     daily_cols = {
         "match": "对阵", "group": "组", "date": "比赛日期", "round": "轮次",
-        "final_probs": "最终概率", "final_result": "最终预测",
+        "base_score": "比分预测", "final_probs": "最终概率", "final_result": "最终预测",
         "draw_override": "平局覆写", "odds_blend": "赔率融合", "risk": "风险",
         "lambda_h": "_lh", "lambda_a": "_la",
     }
     daily_df = out_df[list(daily_cols.keys())].copy()
     daily_df.columns = [daily_cols[c] for c in daily_cols]
     daily_df.insert(0, "预测日期", today_str)
-    # 期望进球作为比分预测（一位小数），跟在"对阵"后面
-    daily_df.insert(2, "比分预测(λ)", daily_df["_lh"].apply(lambda x: f"{x:.1f}") + ":" + daily_df["_la"].apply(lambda x: f"{x:.1f}"))
+    # 期望进球（λ）跟在比分后面，方便理解
+    daily_df.insert(3, "期望进球", "(" + daily_df["_lh"].apply(lambda x: f"{x:.1f}") + "/" + daily_df["_la"].apply(lambda x: f"{x:.1f}") + ")")
     daily_df.drop(columns=["_lh", "_la"], inplace=True)
     # 对阵名翻译成中文
     daily_df["对阵"] = daily_df["对阵"].apply(lambda m: " vs ".join(CN.get(t, t) for t in m.split(" vs ")))
