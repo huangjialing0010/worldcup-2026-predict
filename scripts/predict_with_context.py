@@ -57,9 +57,14 @@ beta = params["beta"]
 gamma = params["gamma"]
 rho = params["rho"]
 
-rankings = load_rankings()
+rankings = load_rankings()  # still used by motivation layer for path/display
 last_play = load_match_history()
 wc_df = pd.read_csv(ROOT / "data" / "raw" / "matches_2026.csv", encoding="utf-8-sig")
+
+# Clean W/L/D ELO (no goal circularity)
+ELO_DF = pd.read_csv(ROOT / "data" / "processed" / "clean_elo.csv", encoding="utf-8-sig")
+ELO_DICT = dict(zip(ELO_DF["team"], ELO_DF["elo"]))
+ELO_SCALE = 400
 
 # 球队中文名映射
 CN = {
@@ -121,9 +126,9 @@ def apply_draw_detector(current_result, adj_d, draw_uplift):
 # DC 预测函数（同 elo_lambda_model.py）
 # ============================================================
 def dc_predict(home, away, max_g=10):
-    rk_h = get_adjusted_rank(home, rankings)
-    rk_a = get_adjusted_rank(away, rankings)
-    rd_raw = (rk_a - rk_h) / 100.0
+    e_h = ELO_DICT.get(home, 1500)
+    e_a = ELO_DICT.get(away, 1500)
+    rd_raw = (e_h - e_a) / ELO_SCALE  # positive = home stronger
     rd = np.tanh(rd_raw * 3.0) / 3.0  # soft saturation
 
     lh = np.exp(alpha + beta * rd + gamma)

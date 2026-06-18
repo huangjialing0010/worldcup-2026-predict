@@ -28,27 +28,29 @@ print(f"Training: {len(train)} matches (2022+)")
 
 wc_df = pd.read_csv(ROOT / "data" / "raw" / "matches_2026.csv", encoding="utf-8-sig")
 
-# Use FIFA rankings (stable, reliable) instead of dynamic Elo
-from model_utils import load_rankings
-rankings = load_rankings()
-# For goal prediction, rank is a proxy for strength
-# Convert: lower rank = stronger → strength = -rank (so higher = stronger)
-# Or just use rank directly in the formula with appropriate sign
+# Use clean W/L/D ELO (no goal dependency, no circularity)
+# Built by build_clean_elo.py from 4580 matches
+elo_path = ROOT / "data" / "processed" / "clean_elo.csv"
+matches_elo_path = ROOT / "data" / "processed" / "matches_with_elo.csv"
+if not elo_path.exists() or not matches_elo_path.exists():
+    import subprocess; subprocess.run([sys.executable, str(ROOT / "scripts" / "build_clean_elo.py")])
 
-print(f"FIFA rank range: {min(rankings.values())} - {max(rankings.values())}")
+# Current ELO for prediction
+elo_df = pd.read_csv(elo_path, encoding="utf-8-sig")
+elo_dict = dict(zip(elo_df["team"], elo_df["elo"]))
+ELO_SCALE = 400
 
-# ============================================================
-# Training arrays (use FIFA rank instead of Elo)
-# ============================================================
-# rank diff: (rank_away - rank_home) > 0 means home is stronger (lower rank = better)
-train_rd = np.array([
-    rankings.get(a, 50) - rankings.get(h, 50)
-    for h, a in zip(train["home_team"], train["away_team"])
-], dtype=np.float64)
-train_hg = train["home_goals"].values.astype(int)
-train_ag = train["away_goals"].values.astype(int)
+# Training: use clean pre-match ELO from matches_with_elo.csv
+elo_train = pd.read_csv(matches_elo_path, encoding="utf-8-sig")
+elo_train["date"] = pd.to_datetime(elo_train["date"])
+elo_train = elo_train[elo_train["date"] >= "2022-01-01"].copy()
+train_rd = (elo_train["elo_h_clean"] - elo_train["elo_a_clean"]).values / ELO_SCALE
+train_hg = elo_train["home_goals"].values.astype(int)
+train_ag = elo_train["away_goals"].values.astype(int)
 
-print(f"Rank diff range: {train_rd.min():.0f} to {train_rd.max():.0f}")
+print(f"ELO range: {min(elo_dict.values()):.0f} - {max(elo_dict.values()):.0f}")
+print(f"Training: {len(elo_train)} matches (2022+)")
+print(f"ELO diff/400 range: {train_rd.min():.2f} to {train_rd.max():.2f}")
 
 # ============================================================
 # DC neg log likelihood
@@ -61,7 +63,7 @@ def neg_loglik(params):
     if gamma <= -0.5 or gamma >= 1.0: return 1e10
     if abs(rho) >= 0.1: return 1e10
 
-    rd = train_rd / 100.0  # normalized rank diff
+    rd = np.tanh(train_rd * 3.0) / 3.0  # soft saturation
     log_lh = alpha + beta * rd + gamma
     log_la = alpha - beta * rd
     lh = np.exp(np.clip(log_lh, -5, 5))
@@ -100,21 +102,22 @@ print(f"alpha={alpha:.4f}  beta={beta:.4f}  gamma={gamma:.4f}  rho={rho:.6f}")
 print(f"Converged: {result.success}")
 
 # Show what this means
-rd_test = np.array([0, 20, 40, 60, 80])  # rank difference
-print("\nExpected goals by rank gap:")
-print(f"{'Rank gap':>10} {'λ_home':>8} {'λ_away':>8} {'ratio':>8}")
-for gap in rd_test:
-    lh = np.exp(alpha + beta * gap / 100 + gamma)
-    la = np.exp(alpha - beta * gap / 100)
+elo_gaps = np.array([0, 50, 100, 200, 300])  # ELO difference
+print("\nExpected goals by ELO gap:")
+print(f"{'ELO gap':>10} {'λ_home':>8} {'λ_away':>8} {'ratio':>8}")
+for gap in elo_gaps:
+    rd = gap / ELO_SCALE
+    lh = np.exp(alpha + beta * rd + gamma)
+    la = np.exp(alpha - beta * rd)
     print(f"{gap:>10.0f} {lh:>8.2f} {la:>8.2f} {lh/la:>8.2f}")
 
 # ============================================================
 # Predict function
 # ============================================================
 def predict(home, away, max_g=10):
-    rk_h = rankings.get(home, 50)
-    rk_a = rankings.get(away, 50)
-    rd_raw = (rk_a - rk_h) / 100.0  # positive = home stronger
+    e_h = elo_dict.get(home, 1500)
+    e_a = elo_dict.get(away, 1500)
+    rd_raw = (e_h - e_a) / ELO_SCALE  # positive = home stronger
     rd = np.tanh(rd_raw * 3.0) / 3.0  # soft saturation
 
     lh = np.exp(alpha + beta * rd + gamma)
@@ -174,9 +177,9 @@ for _, row in wc_df.iterrows():
     if ph == hg and pa == ag: exact += 1
     mae += abs(ph - hg) + abs(pa - ag)
 
-    rk_h = rankings.get(home, 50)
-    rk_a = rankings.get(away, 50)
-    print(f"  {home:<15} vs {away:<15} {hg}:{ag} ({rl[act]:>4})  pred:{rl[result]:>5} {ph}:{pa} {ok}  [{prob_h:.0%}/{prob_d:.0%}/{prob_a:.0%}]  R:{rk_h}v{rk_a}  λ:{lh:.1f}v{la:.1f}")
+    e_h = elo_dict.get(home, 1500)
+    e_a = elo_dict.get(away, 1500)
+    print(f"  {home:<15} vs {away:<15} {hg}:{ag} ({rl[act]:>4})  pred:{rl[result]:>5} {ph}:{pa} {ok}  [{prob_h:.0%}/{prob_d:.0%}/{prob_a:.0%}]  E:{e_h:.0f}v{e_a:.0f}  λ:{lh:.1f}v{la:.1f}")
 
 n = len(wc_df)
 print(f"\n  Result:  {correct}/{n} = {correct/n*100:.1f}%")

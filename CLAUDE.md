@@ -8,12 +8,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 当前状态 (2026-06-18)
 
-**已赛 23 场，预测准确率 56.5%（13/23），非平局 92.9%（13/14），平局 0/9。加纳 1-0 巴拿马为首个非平局翻车。**
+**已赛 23 场，预测准确率 56.5%（13/23），非平局 92.9%（13/14），平局 0/9。**
 
-当前最佳模型：**Rank→Lambda DC** (`scripts/elo_lambda_model.py`)
-- 用 FIFA 排名计算期望进球 λ，不经过排名压缩（λ 范围 0.4–4.1）
-- Dixon-Coles τ 修正低比分相关性
-- 参数: alpha=0.0689, beta=1.277, gamma=0.3158, rho=-0.05185
+当前最佳模型：**Clean ELO→Lambda DC** (`scripts/elo_lambda_model.py`)
+- 用纯 W/L/D ELO 计算期望进球 λ（无进球循环依赖）
+- Dixon-Coles τ + tanh 软饱和
+- 参数: alpha=0.0536, beta=1.9714, gamma=0.2611, rho=-0.067428
+- ELO 范围: 1362 (库拉索) - 1824 (西班牙)
 - 参数文件: `output/rank_lambda_model.json`
 
 ### 动机修正层
@@ -42,7 +43,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 旧ELO (FIFA排名, 随机切分) | 56.2%→75% | 数据泄露（调参包含了测试集） |
 | 旧集成 (Poisson+ELO+DC加权) | 43.8% | DC拖后腿，权重公式错误 |
 | 修复集成 (Poisson+ELO 50/50) | 52.1% | 全量数据，比分全是1:1/2:1 |
-| **Rank→Lambda DC (当前)** | **56.5%** | tanh λ 饱和 + 地缘因子修正 + 平局检测器 |
+| **Clean ELO→Lambda DC (当前)** | **56.5%** | 纯W/L/D ELO + tanh饱和 + 平局检测器 + 赔率融合 |
 
 ### 平局风险标注系统
 
@@ -69,12 +70,15 @@ data/raw/               # 原始数据
   historical_matches.csv # 历史比赛
 data/processed/         # 清洗后数据
   matches.csv           # 4580场历史比赛
+  matches_with_elo.csv  # 含clean ELO的历史比赛
+  clean_elo.csv         # 纯W/L/D ELO评级（48队）
   teams.csv             # 球队排名
 scripts/                # 核心脚本
   model_utils.py        # 共享工具函数、数据加载
   models.py             # OptimizedPoisson, OptimizedELO, DixonColes
   ensemble.py           # EnsemblePredictor (Poisson+ELO 50/50)
-  elo_lambda_model.py   # ★ 当前最佳: Rank→Lambda DC 模型
+  build_clean_elo.py    # ★ 纯W/L/D ELO构建（无循环依赖）
+  elo_lambda_model.py   # ★ 当前最佳: Clean ELO→Lambda DC 模型
   motivation.py         # ★ 动机修正: 赛制路径/体能/积分/地缘政治
   predict_with_context.py # ★ 带动机修正的预测（动态赛程）
   score_scraper.py      # ★ Wikipedia 比分爬虫（GitHub Actions 自动运行）
