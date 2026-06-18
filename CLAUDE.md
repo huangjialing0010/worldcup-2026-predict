@@ -50,7 +50,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### 已知局限
 
 1. **平局预测 0%** — 泊松框架下平局永远不是概率最大值，这是理论极限
-2. **比分 MAE 1.95** — 极端比分（7:1）无法预测
+2. **比分 MAE 1.64** — round(λ) 替代 Poisson mode，MAE 从 1.95→1.64（-16%）
 3. **λ 饱和修正（NEW 6/18）** — tanh 软饱和防止大排名差过度外推（90%+→~71%），但平局仍无法预测
 4. **地缘因子方向修正（NEW 6/18）** — 刚果(金) FIFA 停赛恢复从负面转为正面（+2pp boost）
 5. **淘汰赛预测力未知** — 小组赛快结束，淘汰赛需要升级
