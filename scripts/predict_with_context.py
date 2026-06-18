@@ -231,6 +231,8 @@ if __name__ == "__main__":
             "round": round_label,
             "ranks": f"#{rk_h}v#{rk_a}",
             "lambdas": f"λ{lh:.1f}:{la:.1f}",
+            "lambda_h": lh,
+            "lambda_a": la,
             "base_score": f"{ph}:{pa}",
             "base_result": result_label(result),
             "base_probs": f"H{p_h:.0%} D{p_d:.0%} A{p_a:.0%}",
@@ -281,16 +283,18 @@ if __name__ == "__main__":
     # 中文列名 + 精简列
     daily_cols = {
         "match": "对阵", "group": "组", "date": "比赛日期", "round": "轮次",
-        "base_score": "比分预测", "base_probs": "DC概率", "final_probs": "最终概率",
-        "final_result": "最终预测", "draw_override": "平局覆写", "odds_blend": "赔率融合",
-        "risk": "风险"
+        "final_probs": "最终概率", "final_result": "最终预测",
+        "draw_override": "平局覆写", "odds_blend": "赔率融合", "risk": "风险",
+        "lambda_h": "_lh", "lambda_a": "_la",
     }
     daily_df = out_df[list(daily_cols.keys())].copy()
     daily_df.columns = [daily_cols[c] for c in daily_cols]
     daily_df.insert(0, "预测日期", today_str)
+    # 期望进球作为比分预测（一位小数），跟在"对阵"后面
+    daily_df.insert(2, "比分预测(λ)", daily_df["_lh"].apply(lambda x: f"{x:.1f}") + ":" + daily_df["_la"].apply(lambda x: f"{x:.1f}"))
+    daily_df.drop(columns=["_lh", "_la"], inplace=True)
     # 对阵名翻译成中文
     daily_df["对阵"] = daily_df["对阵"].apply(lambda m: " vs ".join(CN.get(t, t) for t in m.split(" vs ")))
-    daily_df["最终预测"] = daily_df["最终预测"].replace({"主胜": "主胜", "平局": "平局", "客胜": "客胜"})
     daily_df.to_csv(daily_out, index=False, encoding="utf-8-sig")
 
     print(f"\n{'='*95}")
