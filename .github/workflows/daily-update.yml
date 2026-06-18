@@ -2,7 +2,7 @@ name: Daily Score Update & Predict
 
 on:
   schedule:
-    - cron: '0 7,12 * * *'
+    - cron: '0 7,12,16,21 * * *'
   workflow_dispatch:
     inputs:
       skip_scrape:
