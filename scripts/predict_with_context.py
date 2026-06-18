@@ -252,8 +252,27 @@ if __name__ == "__main__":
     out_df = pd.DataFrame(lines)
     out_path = ROOT / "output" / "predictions_with_context.csv"
     out_df.to_csv(out_path, index=False, encoding="utf-8-sig")
+
+    # 每日快照
+    daily_dir = ROOT / "output" / "daily"
+    daily_dir.mkdir(parents=True, exist_ok=True)
+    today_str = str(date.today())
+    daily_out = daily_dir / f"{today_str}.csv"
+    # 中文列名 + 精简列
+    daily_cols = {
+        "match": "对阵", "group": "组", "date": "比赛日期", "round": "轮次",
+        "base_score": "比分预测", "base_probs": "DC概率", "final_probs": "最终概率",
+        "final_result": "最终预测", "draw_override": "平局覆写", "odds_blend": "赔率融合",
+        "risk": "风险"
+    }
+    daily_df = out_df[list(daily_cols.keys())].copy()
+    daily_df.columns = [daily_cols[c] for c in daily_cols]
+    daily_df.insert(0, "预测日期", today_str)
+    daily_df.to_csv(daily_out, index=False, encoding="utf-8-sig")
+
     print(f"\n{'='*95}")
     print(f"  已保存: {out_path}")
+    print(f"  每日快照: {daily_out}")
 
     # 汇总
     print(f"\n  共 {len(REMAINING)} 场比赛预测")

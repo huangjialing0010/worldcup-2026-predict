@@ -67,5 +67,6 @@ jobs:
             output/*.json
             output/*.txt
             output/*.csv
+            output/daily/*.csv
           skip_dirty_check: false
           skip_fetch: true
