@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 当前状态 (2026-06-18)
 
-**已赛 22 场，预测准确率 59.1%（13/22），非平局比赛 100%（13/13），平局 0/9。**
+**已赛 23 场，预测准确率 56.5%（13/23），非平局 92.9%（13/14），平局 0/9。加纳 1-0 巴拿马为首个非平局翻车。**
 
 当前最佳模型：**Rank→Lambda DC** (`scripts/elo_lambda_model.py`)
 - 用 FIFA 排名计算期望进球 λ，不经过排名压缩（λ 范围 0.4–4.1）
@@ -42,7 +42,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 旧ELO (FIFA排名, 随机切分) | 56.2%→75% | 数据泄露（调参包含了测试集） |
 | 旧集成 (Poisson+ELO+DC加权) | 43.8% | DC拖后腿，权重公式错误 |
 | 修复集成 (Poisson+ELO 50/50) | 52.1% | 全量数据，比分全是1:1/2:1 |
-| **Rank→Lambda DC (当前)** | **59.1%** | tanh λ 饱和 + 地缘因子修正 |
+| **Rank→Lambda DC (当前)** | **56.5%** | tanh λ 饱和 + 地缘因子修正 + 平局检测器 |
 
 ### 平局风险标注系统
 
