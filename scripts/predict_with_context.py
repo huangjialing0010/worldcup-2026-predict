@@ -65,9 +65,9 @@ wc_df = pd.read_csv(ROOT / "data" / "raw" / "matches_2026.csv", encoding="utf-8-
 # 赔率加载
 # ============================================================
 def load_all_odds():
-    """从 odds_round*.csv 加载所有赔率 → {match_name: (h, d, a)}"""
+    """从 odds_*.csv 加载所有赔率 → {match_name: (h, d, a)}（live 覆盖 round）"""
     odds = {}
-    for path in sorted((ROOT / "data" / "raw").glob("odds_round*.csv")):
+    for path in sorted((ROOT / "data" / "raw").glob("odds_*.csv")):
         df = pd.read_csv(path, encoding="utf-8-sig")
         for _, row in df.iterrows():
             odds[row["match"]] = (row["home_odds"], row["draw_odds"], row["away_odds"])

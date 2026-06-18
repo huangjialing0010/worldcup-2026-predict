@@ -37,6 +37,13 @@ jobs:
         env:
           PYTHONUNBUFFERED: 1
 
+      - name: Scrape live odds
+        if: ${{ !inputs.skip_scrape }}
+        continue-on-error: true
+        run: python scripts/odds_scraper.py
+        env:
+          PYTHONUNBUFFERED: 1
+
       - name: Run backtest
         run: python scripts/elo_lambda_model.py
         env:
@@ -56,6 +63,7 @@ jobs:
           file_pattern: |
             data/raw/matches_2026.csv
             data/raw/scraping_log.txt
+            data/raw/odds_live.csv
             output/*.json
             output/*.txt
             output/*.csv
