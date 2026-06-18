@@ -126,7 +126,9 @@ def predict(home, away, max_g=10):
     la = np.clip(la, 0.05, 15.0)
 
     p_h, p_d, p_a = 0.0, 0.0, 0.0
-    best_prob, best_h, best_a = -1, 0, 0
+    best_hw, best_hw_score = -1, (0, 0)
+    best_dr, best_dr_score = -1, (0, 0)
+    best_aw, best_aw_score = -1, (0, 0)
 
     for i in range(max_g + 1):
         for j in range(max_g + 1):
@@ -136,17 +138,26 @@ def predict(home, away, max_g=10):
             elif i == 1 and j == 0:    prob *= (1 + la * rho)
             elif i == 1 and j == 1:    prob *= (1 - rho)
 
-            if i > j: p_h += prob
-            elif i == j: p_d += prob
-            else: p_a += prob
-
-            if prob > best_prob:
-                best_prob, best_h, best_a = prob, i, j
+            if i > j:
+                p_h += prob
+                if prob > best_hw: best_hw, best_hw_score = prob, (i, j)
+            elif i == j:
+                p_d += prob
+                if prob > best_dr: best_dr, best_dr_score = prob, (i, j)
+            else:
+                p_a += prob
+                if prob > best_aw: best_aw, best_aw_score = prob, (i, j)
 
     total = p_h + p_d + p_a
     if total > 0: p_h /= total; p_d /= total; p_a /= total
 
     result = "H" if p_h >= max(p_d, p_a) else ("D" if p_d >= max(p_h, p_a) else "A")
+    if result == "H":
+        best_h, best_a = best_hw_score
+    elif result == "D":
+        best_h, best_a = best_dr_score
+    else:
+        best_h, best_a = best_aw_score
     return result, best_h, best_a, (p_h, p_d, p_a), (lh, la)
 
 

@@ -137,7 +137,9 @@ def dc_predict(home, away, max_g=10, goals_mod=1.0):
     la = np.clip(la, 0.05, 15.0)
 
     p_h, p_d, p_a = 0.0, 0.0, 0.0
-    best_prob, best_h, best_a = -1, 0, 0
+    best_hw, best_hw_score = -1, (0, 0)  # best home win score
+    best_dr, best_dr_score = -1, (0, 0)  # best draw score
+    best_aw, best_aw_score = -1, (0, 0)  # best away win score
 
     for i in range(max_g + 1):
         for j in range(max_g + 1):
@@ -147,17 +149,26 @@ def dc_predict(home, away, max_g=10, goals_mod=1.0):
             elif i == 1 and j == 0:    prob *= (1 + la * rho)
             elif i == 1 and j == 1:    prob *= (1 - rho)
 
-            if i > j: p_h += prob
-            elif i == j: p_d += prob
-            else: p_a += prob
-
-            if prob > best_prob:
-                best_prob, best_h, best_a = prob, i, j
+            if i > j:
+                p_h += prob
+                if prob > best_hw: best_hw, best_hw_score = prob, (i, j)
+            elif i == j:
+                p_d += prob
+                if prob > best_dr: best_dr, best_dr_score = prob, (i, j)
+            else:
+                p_a += prob
+                if prob > best_aw: best_aw, best_aw_score = prob, (i, j)
 
     total = p_h + p_d + p_a
     if total > 0: p_h /= total; p_d /= total; p_a /= total
 
     result = "HOME" if p_h >= max(p_d, p_a) else ("DRAW" if p_d >= max(p_h, p_a) else "AWAY")
+    if result == "HOME":
+        best_h, best_a = best_hw_score
+    elif result == "DRAW":
+        best_h, best_a = best_dr_score
+    else:
+        best_h, best_a = best_aw_score
     return result, best_h, best_a, (p_h, p_d, p_a), (lh, la)
 
 
@@ -208,6 +219,8 @@ if __name__ == "__main__":
         adj_result_raw = "HOME" if final_h >= max(final_d, final_a) else ("DRAW" if final_d >= max(final_h, final_a) else "AWAY")
         adj_result = apply_draw_detector(adj_result_raw, final_d, adj.draw_uplift)
         draw_override = (adj_result == "DRAW" and adj_result_raw != "DRAW")
+        if draw_override:
+            ph, pa = 1, 1  # 覆写为平局比分（泊松模式下几乎总是1:1）
 
         # 风险等级
         if final_d >= 0.30:
