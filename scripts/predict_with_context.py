@@ -68,7 +68,8 @@ wc_df = pd.read_csv(ROOT / "data" / "raw" / "matches_2026.csv", encoding="utf-8-
 def dc_predict(home, away, max_g=10):
     rk_h = get_adjusted_rank(home, rankings)
     rk_a = get_adjusted_rank(away, rankings)
-    rd = (rk_a - rk_h) / 100.0
+    rd_raw = (rk_a - rk_h) / 100.0
+    rd = np.tanh(rd_raw * 3.0) / 3.0  # soft saturation
 
     lh = np.exp(alpha + beta * rd + gamma)
     la = np.exp(alpha - beta * rd)

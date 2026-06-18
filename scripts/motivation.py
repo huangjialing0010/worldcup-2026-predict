@@ -349,9 +349,9 @@ GEOPOLITICAL = {
     ),
     "DR Congo": GeoProfile(
         level="MILD",
-        win_penalty=-0.02,
+        win_penalty=0.02,
         draw_uplift=+0.01,
-        labels=["FIFA_SUSPENSION: 2月被FIFA暂停资格，5月方恢复（备战受扰）"],
+        labels=["FIFA_SUSPENSION: 2月被FIFA暂停，5月恢复——逆境凝聚团队，反而提升战斗力"],
     ),
 }
 

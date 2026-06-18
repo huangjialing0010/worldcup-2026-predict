@@ -103,10 +103,10 @@ print(f"Converged: {result.success}")
 rd_test = np.array([0, 20, 40, 60, 80])  # rank difference
 print("\nExpected goals by rank gap:")
 print(f"{'Rank gap':>10} {'λ_home':>8} {'λ_away':>8} {'ratio':>8}")
-for rd in rd_test:
-    lh = np.exp(alpha + beta * rd / 100 + gamma)
-    la = np.exp(alpha - beta * rd / 100)
-    print(f"{rd:>10.0f} {lh:>8.2f} {la:>8.2f} {lh/la:>8.2f}")
+for gap in rd_test:
+    lh = np.exp(alpha + beta * gap / 100 + gamma)
+    la = np.exp(alpha - beta * gap / 100)
+    print(f"{gap:>10.0f} {lh:>8.2f} {la:>8.2f} {lh/la:>8.2f}")
 
 # ============================================================
 # Predict function
@@ -114,7 +114,8 @@ for rd in rd_test:
 def predict(home, away, max_g=10):
     rk_h = rankings.get(home, 50)
     rk_a = rankings.get(away, 50)
-    rd = (rk_a - rk_h) / 100.0  # positive = home stronger
+    rd_raw = (rk_a - rk_h) / 100.0  # positive = home stronger
+    rd = np.tanh(rd_raw * 3.0) / 3.0  # soft saturation
 
     lh = np.exp(alpha + beta * rd + gamma)
     la = np.exp(alpha - beta * rd)
