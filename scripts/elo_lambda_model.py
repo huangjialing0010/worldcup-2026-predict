@@ -18,6 +18,10 @@ warnings.filterwarnings('ignore')
 ROOT = Path(__file__).parent.parent
 OUTPUT = ROOT / "output"
 
+# Draw override thresholds
+DRAW_ELO_THRESHOLD = 50    # |ELO gap| below this → consider draw
+DRAW_PROB_THRESHOLD = 0.28  # P(D) above this → trigger override
+
 # ============================================================
 # Load
 # ============================================================
@@ -152,6 +156,12 @@ def predict(home, away, max_g=10):
     if total > 0: p_h /= total; p_d /= total; p_a /= total
 
     result = "H" if p_h >= max(p_d, p_a) else ("D" if p_d >= max(p_h, p_a) else "A")
+
+    # Draw override: Poisson never picks draw, force it when ELO gap is tiny
+    elo_gap = abs(e_h - e_a)
+    if elo_gap < DRAW_ELO_THRESHOLD and p_d >= DRAW_PROB_THRESHOLD:
+        result = "D"
+
     if result == "H":
         best_h, best_a = best_hw_score
     elif result == "D":
