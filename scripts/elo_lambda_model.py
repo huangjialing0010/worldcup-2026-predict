@@ -20,8 +20,9 @@ OUTPUT = ROOT / "output"
 
 # Draw override thresholds
 DRAW_ELO_THRESHOLD = 50    # |ELO gap| below this → consider draw
-DRAW_PROB_THRESHOLD = 0.28  # P(D) above this → trigger override
+DRAW_PROB_THRESHOLD = 0.25  # P(D) above this → trigger override (calibrated for λ×1.12)
 DRAW_RATE_THRESHOLD = 0.50  # Both teams' tournament draw rate above this → draw bonus
+LAMBDA_SCALE = 1.12         # Global λ calibration: actual 3.02 / model 2.71 goals per match
 
 # ============================================================
 # Load
@@ -125,8 +126,8 @@ def predict(home, away, h_draw_rate=0.0, a_draw_rate=0.0, h_matches=0, a_matches
     rd_raw = (e_h - e_a) / ELO_SCALE  # positive = home stronger
     rd = np.tanh(rd_raw * 3.0) / 3.0  # soft saturation
 
-    lh = np.exp(alpha + beta * rd + gamma)
-    la = np.exp(alpha - beta * rd)
+    lh = np.exp(alpha + beta * rd + gamma) * LAMBDA_SCALE
+    la = np.exp(alpha - beta * rd) * LAMBDA_SCALE
     lh = np.clip(lh, 0.05, 15.0)
     la = np.clip(la, 0.05, 15.0)
 

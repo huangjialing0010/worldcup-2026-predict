@@ -65,6 +65,7 @@ wc_df = pd.read_csv(ROOT / "data" / "raw" / "matches_2026.csv", encoding="utf-8-
 ELO_DF = pd.read_csv(ROOT / "data" / "processed" / "clean_elo.csv", encoding="utf-8-sig")
 ELO_DICT = dict(zip(ELO_DF["team"], ELO_DF["elo"]))
 ELO_SCALE = 400
+LAMBDA_SCALE = 1.12  # Global λ calibration: actual 3.02 / model 2.71 goals per match
 
 # 球队中文名映射
 CN = {
@@ -131,8 +132,8 @@ def dc_predict(home, away, max_g=10, goals_mod=1.0):
     rd_raw = (e_h - e_a) / ELO_SCALE  # positive = home stronger
     rd = np.tanh(rd_raw * 3.0) / 3.0  # soft saturation
 
-    lh = np.exp(alpha + beta * rd + gamma) * goals_mod
-    la = np.exp(alpha - beta * rd) * goals_mod
+    lh = np.exp(alpha + beta * rd + gamma) * goals_mod * LAMBDA_SCALE
+    la = np.exp(alpha - beta * rd) * goals_mod * LAMBDA_SCALE
     lh = np.clip(lh, 0.05, 15.0)
     la = np.clip(la, 0.05, 15.0)
 
