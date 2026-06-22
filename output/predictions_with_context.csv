@@ -1,7 +1,5 @@
 ﻿match,group,date,round,ranks,lambdas,lambda_h,lambda_a,base_score,base_result,base_probs,motiv_probs,final_probs,final_result,odds_blend,draw_override,risk,risk_flags,notes,goals_mod
-Tunisia vs Japan,F,2026-06-20,第二轮,#45v#18,λ0.8:1.8,0.8008127621514463,1.80476089407856,0:1,客胜,H15% D24% A61%,H15% D24% A61%,H15% D24% A61%,客胜,N,,  LOW,,,
 New Zealand vs Egypt,G,2026-06-21,第二轮,#85v#29,λ0.8:1.8,0.7982232450554516,1.8106157213068428,0:1,客胜,H15% D24% A61%,H14% D27% A59%,H14% D27% A59%,客胜,N,,! MED,双方首轮均平→赢球可掌握主动权,,
-Uruguay vs Cape Verde,H,2026-06-21,第二轮,#16v#67,λ2.0:0.7,2.009784588746213,0.7191196333690607,2:0,主胜,H67% D21% A12%,H66% D24% A10%,H66% D24% A10%,主胜,N,,  LOW,双方首轮均平→赢球可掌握主动权,,
 France vs Iraq,I,2026-06-22,第二轮,#3v#57,λ2.5:0.6,2.451863621515232,0.5894600107149501,2:0,主胜,H78% D16% A7%,H79% D15% A6%,H79% D15% A6%,主胜,N,,,France首胜(3分) vs Iraq首败(0分)→France可接受平局,,
 Norway vs Senegal,I,2026-06-22,第二轮,#19v#15,λ1.1:1.4,1.068686022405342,1.3523855709809092,0:1,客胜,H29% D29% A42%,H33% D29% A38%,H33% D29% A38%,客胜,N,,! MED,Norway首胜(3分) vs Senegal首败(0分)→Norway可接受平局 | US_TRAVEL_BAN: 在美旅行禁令名单,,
 Argentina vs Austria,J,2026-06-22,第二轮,#1v#24,λ2.3:0.6,2.315324016862967,0.6242217271033059,1:1,主胜,H75% D17% A8%,H71% D25% A4%,H71% D25% A4%,平局,N,Y,! MED,双方首轮均胜→平局对双方均有利,PATH: 小组第一路径略差于第二（差1）,
