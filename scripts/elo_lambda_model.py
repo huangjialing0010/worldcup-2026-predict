@@ -21,6 +21,7 @@ OUTPUT = ROOT / "output"
 # Draw override thresholds
 DRAW_ELO_THRESHOLD = 50    # |ELO gap| below this → consider draw
 DRAW_PROB_THRESHOLD = 0.28  # P(D) above this → trigger override
+DRAW_RATE_THRESHOLD = 0.50  # Both teams' tournament draw rate above this → draw bonus
 
 # ============================================================
 # Load
@@ -118,7 +119,7 @@ for gap in elo_gaps:
 # ============================================================
 # Predict function
 # ============================================================
-def predict(home, away, max_g=10):
+def predict(home, away, h_draw_rate=0.0, a_draw_rate=0.0, h_matches=0, a_matches=0, max_g=10):
     e_h = elo_dict.get(home, 1500)
     e_a = elo_dict.get(away, 1500)
     rd_raw = (e_h - e_a) / ELO_SCALE  # positive = home stronger
@@ -162,6 +163,11 @@ def predict(home, away, max_g=10):
     if elo_gap < DRAW_ELO_THRESHOLD and p_d >= DRAW_PROB_THRESHOLD:
         result = "D"
 
+    # Team draw propensity: both teams draw-prone (min 2 matches for signal)
+    if (h_draw_rate >= DRAW_RATE_THRESHOLD and a_draw_rate >= DRAW_RATE_THRESHOLD
+        and h_matches >= 2 and a_matches >= 2):
+        result = "D"
+
     if result == "H":
         best_h, best_a = best_hw_score
     elif result == "D":
@@ -182,12 +188,23 @@ rl = {'H': 'H', 'D': 'DRAW', 'A': 'A'}
 correct = exact = mae = 0
 draw_total = draw_correct = 0
 
+# Track team tournament draw rates sequentially (no data leakage)
+team_draws = {}   # {team: draws}
+team_games = {}   # {team: total matches}
+
 for _, row in wc_df.iterrows():
     home, away = row["home_team"], row["away_team"]
     hg, ag = int(row["home_score"]), int(row["away_score"])
     act = "H" if hg > ag else ("D" if hg == ag else "A")
 
-    result, ph, pa, probs, (lh, la) = predict(home, away)
+    h_dr = team_draws.get(home, 0)
+    h_gm = team_games.get(home, 0)
+    a_dr = team_draws.get(away, 0)
+    a_gm = team_games.get(away, 0)
+    h_rate = h_dr / h_gm if h_gm > 0 else 0.0
+    a_rate = a_dr / a_gm if a_gm > 0 else 0.0
+
+    result, ph, pa, probs, (lh, la) = predict(home, away, h_rate, a_rate, h_gm, a_gm)
     prob_h, prob_d, prob_a = probs
 
     ok = "OK" if result == act else "XX"
@@ -198,9 +215,17 @@ for _, row in wc_df.iterrows():
     if ph == hg and pa == ag: exact += 1
     mae += abs(ph - hg) + abs(pa - ag)
 
+    # Update team stats AFTER prediction
+    team_games[home] = h_gm + 1
+    team_games[away] = a_gm + 1
+    if act == "D":
+        team_draws[home] = team_draws.get(home, 0) + 1
+        team_draws[away] = team_draws.get(away, 0) + 1
+
     e_h = elo_dict.get(home, 1500)
     e_a = elo_dict.get(away, 1500)
-    print(f"  {home:<15} vs {away:<15} {hg}:{ag} ({rl[act]:>4})  pred:{rl[result]:>5} {ph}:{pa} {ok}  [{prob_h:.0%}/{prob_d:.0%}/{prob_a:.0%}]  E:{e_h:.0f}v{e_a:.0f}  λ:{lh:.1f}v{la:.1f}")
+    draw_info = f"dr:{h_rate:.0%}/{a_rate:.0%}" if h_gm > 0 or a_gm > 0 else ""
+    print(f"  {home:<15} vs {away:<15} {hg}:{ag} ({rl[act]:>4})  pred:{rl[result]:>5} {ph}:{pa} {ok}  [{prob_h:.0%}/{prob_d:.0%}/{prob_a:.0%}]  E:{e_h:.0f}v{e_a:.0f}  λ:{lh:.1f}v{la:.1f}  {draw_info}")
 
 n = len(wc_df)
 print(f"\n  Result:  {correct}/{n} = {correct/n*100:.1f}%")
