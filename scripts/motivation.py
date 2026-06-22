@@ -517,20 +517,130 @@ def analyze_match(home, away, match_date, group, matches_df, last_play=None):
             adj.risk_flags.append("双方首轮均平→赢球可掌握主动权")
 
     elif md == 3:
-        # 第三轮：极端分化
+        # 第三轮：出线生死战 — 完整场景分析
         home_pts = home_s["pts"] if home_s else 0
         away_pts = away_s["pts"] if away_s else 0
+        home_gd = home_s["gd"] if home_s else 0
+        away_gd = away_s["gd"] if away_s else 0
+        home_gf = home_s["gf"] if home_s else 0
+        away_gf = away_s["gf"] if away_s else 0
 
-        if home_pts == 6 and away_pts == 6:
-            adj.draw_uplift += 0.12
-            adj.expected_goals_mod = 0.75
-            adj.risk_flags.append("⚡ 双方均6分→平局即双双出线（高概率默契球）")
-        elif home_pts >= 4 and away_pts >= 4:
-            adj.draw_uplift += 0.08
-            adj.risk_flags.append("双方4+分→平局对出线均有利")
-        elif home_pts == 0 and away_pts == 0:
-            adj.expected_goals_mod = 1.25
-            adj.risk_flags.append("双方均0分→荣誉之战，开放对攻")
+        # 同组其他两队的分差（用于判断是否需要看另一场结果）
+        other_teams = [t for t in GROUPS_2026.get(group, []) if t not in (home, away)]
+        other_standings = []
+        for ot in other_teams:
+            os = standings.get(group, {}).get(ot, {})
+            other_standings.append((ot, os.get("pts", 0), os.get("gd", 0)))
+
+        # 计算小组排名（当前）
+        all_teams = [(home, home_pts, home_gd, home_gf),
+                      (away, away_pts, away_gd, away_gf)]
+        for ot_name, ot_pts, ot_gd in other_standings:
+            ot_s = standings.get(group, {}).get(ot_name, {})
+            all_teams.append((ot_name, ot_pts, ot_gd, ot_s.get("gf", 0)))
+        all_teams.sort(key=lambda x: (-x[1], -x[2], -x[3]))
+
+        # 判断每个队的当前排名
+        current_rank = {}
+        for i, (tname, _, _, _) in enumerate(all_teams):
+            current_rank[tname] = i + 1
+
+        home_rank = current_rank.get(home, 4)
+        away_rank = current_rank.get(away, 4)
+
+        def classify_team(pts, gd, gf, rank, other_pts_list):
+            """判断一支球队在第三轮前的出线形势"""
+            # 已确定出线
+            if pts >= 6 and rank <= 2:
+                return "QUALIFIED", "已出线→可能轮换主力"
+            # 4分+好净胜球→平局基本出线
+            if pts >= 4 and gd >= 3:
+                return "NEARLY_THROUGH", f"{pts}分 GD{gd:+d}→平局即出线"
+            # 4分+一般净胜球→需要拿分
+            if pts >= 4:
+                return "FIGHTING_EDGE", f"{pts}分 GD{gd:+d}→不败即出线"
+            # 3分→赢球即出线，平局看另一场
+            if pts == 3:
+                return "FIGHTING", f"3分→必须拿分争夺出线权"
+            # 1-2分→必须赢，但第三名也有机会
+            if pts >= 1:
+                return "MUST_WIN", f"{pts}分→必须赢球，争取第三名晋级"
+            # 0分→基本出局但荣誉之战
+            return "PRIDE", "0分→荣誉之战"
+
+        home_status, home_note = classify_team(home_pts, home_gd, home_gf, home_rank,
+                                                [p for _, p, _ in other_standings])
+        away_status, away_note = classify_team(away_pts, away_gd, away_gf, away_rank,
+                                                [p for _, p, _ in other_standings])
+
+        # 状态→动机修正映射
+        # (draw_uplift, goals_mod, home_boost, away_boost, risk_flag)
+        STATUS_ADJUSTMENTS = {
+            ("QUALIFIED", "QUALIFIED"): (0.15, 0.70, 0, 0,
+                "** 双方均已出线→大面积轮换，低强度默契球"),
+            ("QUALIFIED", "NEARLY_THROUGH"): (0.08, 0.80, -0.03, 0.03,
+                "一方已出线轮换，另一方不败即出线"),
+            ("QUALIFIED", "FIGHTING_EDGE"): (0.02, 0.90, -0.05, 0.08,
+                "一方已出线轮换，另一方需拿分"),
+            ("QUALIFIED", "FIGHTING"): (-0.03, 1.05, -0.06, 0.10,
+                "一方已出线轮换，另一方必须抢分"),
+            ("QUALIFIED", "MUST_WIN"): (-0.06, 1.15, -0.08, 0.12,
+                "一方已出线轮换，另一方生死战"),
+            ("QUALIFIED", "PRIDE"): (0.00, 1.00, -0.04, 0.06,
+                "一方已出线，另一方为荣誉而战"),
+            ("NEARLY_THROUGH", "NEARLY_THROUGH"): (0.12, 0.75, 0, 0,
+                "** 双方不败即双双出线→大概率平局"),
+            ("NEARLY_THROUGH", "FIGHTING_EDGE"): (0.06, 0.90, 0.02, 0.02,
+                "双方均有出线主动权，平局对排名有利"),
+            ("NEARLY_THROUGH", "FIGHTING"): (0.04, 1.00, 0.04, 0.00,
+                "一方平局即出线，另一方需争胜"),
+            ("NEARLY_THROUGH", "MUST_WIN"): (-0.02, 1.10, 0.06, 0.04,
+                "一方轻松，另一方背水一战"),
+            ("NEARLY_THROUGH", "PRIDE"): (0.00, 0.95, 0.06, 0.04,
+                "一方接近出线，另一方荣誉之战"),
+            ("FIGHTING_EDGE", "FIGHTING_EDGE"): (0.10, 0.85, 0, 0,
+                "双方不败即出线→平局是双赢结果"),
+            ("FIGHTING_EDGE", "FIGHTING"): (0.05, 1.00, 0.03, 0.03,
+                "一方不败即出线，另一方需赢球"),
+            ("FIGHTING_EDGE", "MUST_WIN"): (0.00, 1.10, 0.05, 0.05,
+                "一方有主动权，另一方生死战"),
+            ("FIGHTING_EDGE", "PRIDE"): (0.00, 1.05, 0.08, 0.02,
+                "一方争出线，另一方荣誉之战"),
+            ("FIGHTING", "FIGHTING"): (0.04, 1.08, 0, 0,
+                "双方均需抢分→激烈对攻但平局可接受"),
+            ("FIGHTING", "MUST_WIN"): (-0.03, 1.15, 0.03, 0.07,
+                "一方有退路，另一方无退路"),
+            ("FIGHTING", "PRIDE"): (-0.02, 1.10, 0.08, 0.02,
+                "一方争出线，另一方为荣誉"),
+            ("MUST_WIN", "MUST_WIN"): (-0.08, 1.25, 0, 0,
+                "** 双方均须赢球→极度开放对攻"),
+            ("MUST_WIN", "PRIDE"): (-0.04, 1.15, 0.06, 0.04,
+                "一方生死战，另一方荣誉之战"),
+            ("PRIDE", "PRIDE"): (0.02, 1.10, 0, 0,
+                "双方均已出局→荣誉之战，开放但无压力"),
+        }
+
+        # 标准化状态对（QUALIFIED > NEARLY_THROUGH > FIGHTING_EDGE > FIGHTING > MUST_WIN > PRIDE）
+        # 确保无论主客队都能匹配
+        status_pair = (home_status, away_status)
+        if status_pair in STATUS_ADJUSTMENTS:
+            du, gm, hb, ab, flag = STATUS_ADJUSTMENTS[status_pair]
+        else:
+            # 反向匹配
+            rev_pair = (away_status, home_status)
+            if rev_pair in STATUS_ADJUSTMENTS:
+                du, gm, ab, hb, flag = STATUS_ADJUSTMENTS[rev_pair]
+            else:
+                du, gm, hb, ab, flag = 0.0, 1.0, 0.0, 0.0, ""
+
+        adj.draw_uplift += du
+        adj.expected_goals_mod *= gm
+        adj.home_boost += hb
+        adj.away_boost += ab
+        if flag:
+            adj.risk_flags.append(flag)
+        adj.notes.append(f"[R3] {home}({home_pts}pt GD{home_gd:+d}): {home_note}")
+        adj.notes.append(f"[R3] {away}({away_pts}pt GD{away_gd:+d}): {away_note}")
 
     # --- D. 地缘政治 ---
     for team, is_home in [(home, True), (away, False)]:
