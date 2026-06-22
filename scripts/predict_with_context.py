@@ -222,6 +222,9 @@ if __name__ == "__main__":
         draw_override = (adj_result == "DRAW" and adj_result_raw != "DRAW")
         if draw_override:
             ph, pa = 1, 1  # 覆写为平局比分（泊松模式下几乎总是1:1）
+        elif adj_result != result and adj_result != "DRAW":
+            # 动机修正翻转了方向，比分也要交换
+            ph, pa = pa, ph
 
         # 风险等级
         if final_d >= 0.30:
