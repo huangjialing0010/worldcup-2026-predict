@@ -60,13 +60,3 @@ jobs:
           commit_message: "auto: daily update"
           commit_user_name: "worldcup-bot"
           commit_user_email: "bot@worldcup-2026.local"
-          file_pattern: |
-            data/raw/matches_2026.csv
-            data/raw/scraping_log.txt
-            data/raw/odds_live.csv
-            output/*.json
-            output/*.txt
-            output/*.csv
-            output/daily/*.csv
-          skip_dirty_check: false
-          skip_fetch: true
