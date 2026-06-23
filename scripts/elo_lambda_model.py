@@ -13,10 +13,30 @@ from scipy import stats
 from scipy.optimize import minimize
 from pathlib import Path
 import json, warnings
+from motivation import analyze_match, apply_motivation
 warnings.filterwarnings('ignore')
 
 ROOT = Path(__file__).parent.parent
 OUTPUT = ROOT / "output"
+
+CN = {
+    "Algeria": "阿尔及利亚", "Argentina": "阿根廷", "Australia": "澳大利亚",
+    "Austria": "奥地利", "Belgium": "比利时", "Bosnia and Herzegovina": "波黑",
+    "Brazil": "巴西", "Canada": "加拿大", "Cape Verde": "佛得角",
+    "Colombia": "哥伦比亚", "Croatia": "克罗地亚", "Curacao": "库拉索",
+    "Czech Republic": "捷克", "DR Congo": "刚果(金)", "Ecuador": "厄瓜多尔",
+    "Egypt": "埃及", "England": "英格兰", "France": "法国",
+    "Germany": "德国", "Ghana": "加纳", "Haiti": "海地",
+    "Iran": "伊朗", "Iraq": "伊拉克", "Ivory Coast": "科特迪瓦",
+    "Japan": "日本", "Jordan": "约旦", "Mexico": "墨西哥",
+    "Morocco": "摩洛哥", "Netherlands": "荷兰", "New Zealand": "新西兰",
+    "Norway": "挪威", "Panama": "巴拿马", "Paraguay": "巴拉圭",
+    "Portugal": "葡萄牙", "Qatar": "卡塔尔", "Saudi Arabia": "沙特",
+    "Scotland": "苏格兰", "Senegal": "塞内加尔", "South Africa": "南非",
+    "South Korea": "韩国", "Spain": "西班牙", "Sweden": "瑞典",
+    "Switzerland": "瑞士", "Tunisia": "突尼斯", "Turkey": "土耳其",
+    "USA": "美国", "Uruguay": "乌拉圭", "Uzbekistan": "乌兹别克斯坦",
+}
 
 # Draw override thresholds
 DRAW_ELO_THRESHOLD = 50    # |ELO gap| below this → consider draw
@@ -120,14 +140,14 @@ for gap in elo_gaps:
 # ============================================================
 # Predict function
 # ============================================================
-def predict(home, away, h_draw_rate=0.0, a_draw_rate=0.0, h_matches=0, a_matches=0, max_g=10):
+def dc_predict(home, away, max_g=10, goals_mod=1.0):
     e_h = elo_dict.get(home, 1500)
     e_a = elo_dict.get(away, 1500)
     rd_raw = (e_h - e_a) / ELO_SCALE  # positive = home stronger
     rd = np.tanh(rd_raw * 3.0) / 3.0  # soft saturation
 
-    lh = np.exp(alpha + beta * rd + gamma) * LAMBDA_SCALE
-    la = np.exp(alpha - beta * rd) * LAMBDA_SCALE
+    lh = np.exp(alpha + beta * rd + gamma) * goals_mod * LAMBDA_SCALE
+    la = np.exp(alpha - beta * rd) * goals_mod * LAMBDA_SCALE
     lh = np.clip(lh, 0.05, 15.0)
     la = np.clip(la, 0.05, 15.0)
 
@@ -159,16 +179,7 @@ def predict(home, away, h_draw_rate=0.0, a_draw_rate=0.0, h_matches=0, a_matches
 
     result = "H" if p_h >= max(p_d, p_a) else ("D" if p_d >= max(p_h, p_a) else "A")
 
-    # Draw override: Poisson never picks draw, force it when ELO gap is tiny
-    elo_gap = abs(e_h - e_a)
-    if elo_gap < DRAW_ELO_THRESHOLD and p_d >= DRAW_PROB_THRESHOLD:
-        result = "D"
-
-    # Team draw propensity: both teams draw-prone (min 2 matches for signal)
-    if (h_draw_rate >= DRAW_RATE_THRESHOLD and a_draw_rate >= DRAW_RATE_THRESHOLD
-        and h_matches >= 2 and a_matches >= 2):
-        result = "D"
-
+    # Note: draw overrides are now handled by motivation layer in backtest
     if result == "H":
         best_h, best_a = best_hw_score
     elif result == "D":
@@ -179,25 +190,32 @@ def predict(home, away, h_draw_rate=0.0, a_draw_rate=0.0, h_matches=0, a_matches
 
 
 # ============================================================
-# Backtest 2026 WC
+# Backtest 2026 WC (with full motivation pipeline)
 # ============================================================
 print(f"\n{'='*70}")
-print("  2026 World Cup Backtest — Rank→Lambda DC Model")
+print("  2026 World Cup Backtest — Rank→Lambda DC + Motivation")
 print(f"{'='*70}")
 
 rl = {'H': 'H', 'D': 'DRAW', 'A': 'A'}
 correct = exact = mae = 0
 draw_total = draw_correct = 0
 
-# Track team tournament draw rates sequentially (no data leakage)
+# Progressive state (no data leakage)
 team_draws = {}   # {team: draws}
 team_games = {}   # {team: total matches}
+last_play = {}    # {team: date} progressive rest-day tracking
 
 for _, row in wc_df.iterrows():
     home, away = row["home_team"], row["away_team"]
     hg, ag = int(row["home_score"]), int(row["away_score"])
+    match_date_str = row["date"]
+    group = row["group"]
     act = "H" if hg > ag else ("D" if hg == ag else "A")
 
+    # Progressive match history: only matches BEFORE this one (no leakage)
+    matches_before = wc_df[wc_df["date"] < match_date_str]
+
+    # Team draw rate tracking (from prior matches only)
     h_dr = team_draws.get(home, 0)
     h_gm = team_games.get(home, 0)
     a_dr = team_draws.get(away, 0)
@@ -205,8 +223,45 @@ for _, row in wc_df.iterrows():
     h_rate = h_dr / h_gm if h_gm > 0 else 0.0
     a_rate = a_dr / a_gm if a_gm > 0 else 0.0
 
-    result, ph, pa, probs, (lh, la) = predict(home, away, h_rate, a_rate, h_gm, a_gm)
-    prob_h, prob_d, prob_a = probs
+    # ---- Full motivation pipeline (same as predict_with_context.py) ----
+    match_date_obj = pd.Timestamp(match_date_str).date()
+
+    e_h = elo_dict.get(home, 1500)
+    e_a = elo_dict.get(away, 1500)
+
+    # Step 1: Motivation analysis (progressive data, no leakage)
+    adj = analyze_match(home, away, match_date_obj, group, matches_before, last_play)
+
+    # Step 2: DC prediction with goals_mod from motivation
+    dc_result, ph, pa, (p_h, p_d, p_a), (lh, la) = dc_predict(
+        home, away, goals_mod=adj.expected_goals_mod
+    )
+
+    # Step 3: Apply motivation adjustments
+    adj_h, adj_d, adj_a = apply_motivation((p_h, p_d, p_a), adj)
+
+    # Step 4: Draw detector (same as predict_with_context.py)
+    result = "H" if adj_h >= max(adj_d, adj_a) else ("D" if adj_d >= max(adj_h, adj_a) else "A")
+    if adj_d >= DRAW_PROB_THRESHOLD and adj.draw_uplift >= 0.04:
+        result = "D"
+
+    # ELO-based draw override: only for round 1 (no motivation context yet)
+    # For md>=2, the motivation draw detector + team draw propensity handle it
+    h_md = team_games.get(home, 0) + 1
+    elo_gap = abs(e_h - e_a)
+    if h_md == 1 and elo_gap < DRAW_ELO_THRESHOLD and p_d >= DRAW_PROB_THRESHOLD:
+        result = "D"
+
+    # Step 5: Team draw propensity (additional rule, min 2 matches for signal)
+    if (h_rate >= DRAW_RATE_THRESHOLD and a_rate >= DRAW_RATE_THRESHOLD
+        and h_gm >= 2 and a_gm >= 2):
+        result = "D"
+
+    # Update score display for flipped/draw-override results
+    if result == "D":
+        ph, pa = 1, 1
+    elif result != dc_result:
+        ph, pa = pa, ph  # motivation flipped result direction
 
     ok = "OK" if result == act else "XX"
     if result == act: correct += 1
@@ -216,17 +271,19 @@ for _, row in wc_df.iterrows():
     if ph == hg and pa == ag: exact += 1
     mae += abs(ph - hg) + abs(pa - ag)
 
-    # Update team stats AFTER prediction
+    # Update progressive state AFTER prediction
     team_games[home] = h_gm + 1
     team_games[away] = a_gm + 1
     if act == "D":
         team_draws[home] = team_draws.get(home, 0) + 1
         team_draws[away] = team_draws.get(away, 0) + 1
+    last_play[home] = match_date_obj
+    last_play[away] = match_date_obj
 
-    e_h = elo_dict.get(home, 1500)
-    e_a = elo_dict.get(away, 1500)
+    home_cn = CN.get(home, home)
+    away_cn = CN.get(away, away)
     draw_info = f"dr:{h_rate:.0%}/{a_rate:.0%}" if h_gm > 0 or a_gm > 0 else ""
-    print(f"  {home:<15} vs {away:<15} {hg}:{ag} ({rl[act]:>4})  pred:{rl[result]:>5} {ph}:{pa} {ok}  [{prob_h:.0%}/{prob_d:.0%}/{prob_a:.0%}]  E:{e_h:.0f}v{e_a:.0f}  λ:{lh:.1f}v{la:.1f}  {draw_info}")
+    print(f"  {home_cn:<8} vs {away_cn:<8} {hg}:{ag} ({rl[act]:>4})  pred:{rl[result]:>5} {ph}:{pa} {ok}  [{adj_h:.0%}/{adj_d:.0%}/{adj_a:.0%}]  E:{e_h:.0f}v{e_a:.0f}  λ:{lh:.1f}v{la:.1f}  {draw_info}")
 
 n = len(wc_df)
 print(f"\n  Result:  {correct}/{n} = {correct/n*100:.1f}%")
