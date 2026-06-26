@@ -2,6 +2,6 @@
   "alpha": 0.0536,
   "beta": 1.9714,
   "gamma": 0.2611,
-  "rho": -0.067428,
+  "rho": -0.067429,
   "description": "FIFA rank → lambda model with DC tau correction"
 }
