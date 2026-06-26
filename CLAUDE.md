@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 当前状态 (2026-06-26)
 
-**已赛 60 场，预测准确率 70.0%（42/60），非平局 81.4%（35/43），平局 43.8%（7/16）。**
+**已赛 60 场，预测准确率 70.0%（42/60），非平局 79.5%（35/44），平局 43.8%（7/16）。**
 
 当前最佳模型：**Clean ELO→Lambda DC** (`scripts/elo_lambda_model.py`)
 - 用纯 W/L/D ELO 计算期望进球 λ（无进球循环依赖）
@@ -72,7 +72,8 @@ data/raw/               # 原始数据
   schedule_2026.csv     # ★ 完整赛程（72场小组赛+32场淘汰赛框架）
   odds_round1.csv       # 第一轮赔率（16场）
   odds_round2.csv       # 第二轮赔率
-  odds_live.csv         # 实时赔率（自动爬取）
+  odds_live.csv         # BetExplorer实时赔率
+  odds_sporttery.csv    # 中国体彩竞彩赔率（覆盖面更大，推荐）
   scraping_log.txt      # 爬虫运行日志
   historical_matches.csv # 历史比赛
 data/processed/         # 清洗后数据
@@ -80,6 +81,7 @@ data/processed/         # 清洗后数据
   matches_with_elo.csv  # 含clean ELO的历史比赛
   clean_elo.csv         # 纯W/L/D ELO评级（48队）
   teams.csv             # 球队排名
+  team_name_map.json    # 中文→英文队名映射（体彩爬虫用）
 scripts/                # 核心脚本
   model_utils.py        # 共享工具函数、数据加载
   models.py             # OptimizedPoisson, OptimizedELO, DixonColes
@@ -90,6 +92,7 @@ scripts/                # 核心脚本
   predict_with_context.py # ★ 带动机修正的预测（动态赛程）
   score_scraper.py      # ★ Wikipedia 比分爬虫（GitHub Actions 自动运行）
   odds_scraper.py       # ★ BetExplorer 赔率爬虫（预测前必须运行）
+  odds_scraper_sporttery.py # ★ 中国体彩竞彩网赔率爬虫（覆盖面更大）
   backtest.py           # 全量回测脚本
   predict.py            # 命令行预测工具
   build_features.py     # 动态ELO + 近期状态特征
@@ -160,12 +163,16 @@ python scripts/elo_lambda_model.py
 
 ## 预测流程（必须遵守）
 
-**每次预测前必须先爬赔率。** 赔率是市场信息的核心载体，70%模型+30%市场赔率融合才能给出最终预测。不爬赔率的预测是裸模型，历史上多次漏判。
+**每次预测前必须先爬赔率。** 赔率是市场信息的核心载体，70%模型+30%市场赔率融合才能给出最终预测。
 
+两个赔率源，互补使用：
 ```bash
-python scripts/odds_scraper.py    # 第一步：爬赔率到 data/raw/odds_live.csv
-python scripts/predict_with_context.py  # 第二步：含赔率融合的预测
+python scripts/odds_scraper.py            # BetExplorer（欧洲盘口）
+python scripts/odds_scraper_sporttery.py  # 中国体彩竞彩网（覆盖面更大，推荐优先）
+python scripts/predict_with_context.py    # 含赔率融合的预测（自动加载所有 odds_*.csv）
 ```
+
+体彩赔率覆盖面通常优于 BetExplorer（8/12 vs 5/12），且 D<2.80 时触发 50% 平局权重加权。
 
 ## 技术约定
 
