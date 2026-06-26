@@ -217,15 +217,26 @@ if __name__ == "__main__":
         # 修正后概率
         adj_h, adj_d, adj_a = apply_motivation((p_h, p_d, p_a), adj)
 
-        # 赔率融合（如有）
+        # 赔率融合（如有）—— 平局信号加权
         match_key = f"{home} vs {away}"
         odds_data = ALL_ODDS.get(match_key)
         if odds_data:
+            raw_h, raw_d, raw_a = odds_data
             o_h, o_d, o_a = odds_to_probs(*odds_data)
-            # 70% 模型 + 30% 市场
+
+            # 市场平局信号越强，赔率权重越高
+            if raw_d < 2.80:
+                d_weight = 0.50      # 强平局信号（D<2.80 → >36%）
+            elif raw_d < 3.50:
+                d_weight = 0.40      # 中等平局信号
+            else:
+                d_weight = 0.30      # 基线
+
             final_h = adj_h * 0.7 + o_h * 0.3
-            final_d = adj_d * 0.7 + o_d * 0.3
+            final_d = adj_d * (1 - d_weight) + o_d * d_weight
             final_a = adj_a * 0.7 + o_a * 0.3
+            total = final_h + final_d + final_a
+            final_h, final_d, final_a = final_h / total, final_d / total, final_a / total
             has_odds = True
         else:
             final_h, final_d, final_a = adj_h, adj_d, adj_a

@@ -190,6 +190,29 @@ def dc_predict(home, away, max_g=10, goals_mod=1.0):
 
 
 # ============================================================
+# 赔率加载（用于回测中的平局加权融合）
+# ============================================================
+def _load_odds():
+    """从 odds_*.csv 加载所有赔率 → {match_name: (h, d, a)}"""
+    odds = {}
+    for path in sorted((ROOT / "data" / "raw").glob("odds_*.csv")):
+        try:
+            df = pd.read_csv(path, encoding="utf-8-sig")
+            for _, row in df.iterrows():
+                odds[row["match"]] = (row["home_odds"], row["draw_odds"], row["away_odds"])
+        except Exception:
+            pass
+    return odds
+
+def _odds_to_probs(h_odds, d_odds, a_odds):
+    """Decimal odds → implied probabilities（去水）"""
+    h_raw = 1 / h_odds; d_raw = 1 / d_odds; a_raw = 1 / a_odds
+    total = h_raw + d_raw + a_raw
+    return h_raw / total, d_raw / total, a_raw / total
+
+BACKTEST_ODDS = _load_odds()
+
+# ============================================================
 # Backtest 2026 WC (with full motivation pipeline)
 # ============================================================
 print(f"\n{'='*70}")
@@ -239,6 +262,24 @@ for _, row in wc_df.iterrows():
 
     # Step 3: Apply motivation adjustments
     adj_h, adj_d, adj_a = apply_motivation((p_h, p_d, p_a), adj)
+
+    # Step 3b: Odds-weighted blend (draw signal from market)
+    match_key = f"{home} vs {away}"
+    odds_data = BACKTEST_ODDS.get(match_key)
+    if odds_data:
+        raw_h, raw_d, raw_a = odds_data
+        o_h, o_d, o_a = _odds_to_probs(*odds_data)
+        if raw_d < 2.80:
+            d_weight = 0.50
+        elif raw_d < 3.50:
+            d_weight = 0.40
+        else:
+            d_weight = 0.30
+        adj_h = adj_h * 0.7 + o_h * 0.3
+        adj_d = adj_d * (1 - d_weight) + o_d * d_weight
+        adj_a = adj_a * 0.7 + o_a * 0.3
+        total = adj_h + adj_d + adj_a
+        adj_h, adj_d, adj_a = adj_h / total, adj_d / total, adj_a / total
 
     # Step 4: Draw detector — tiered prob threshold, unified uplift threshold
     result = "H" if adj_h >= max(adj_d, adj_a) else ("D" if adj_d >= max(adj_h, adj_a) else "A")
