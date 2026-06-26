@@ -111,14 +111,29 @@ ALL_ODDS = load_all_odds()
 
 
 # ============================================================
-# 平局检测器
+# 平局检测器（分级prob阈值，统一uplift阈值）
 # ============================================================
-def apply_draw_detector(current_result, adj_d, draw_uplift):
+def apply_draw_detector(current_result, adj_d, draw_uplift, lambda_ratio, matchday=1):
     """
-    当动机层发出强平局信号时，覆写泊松结果判平局。
-    阈值：P(D)≥25% 且 平局上浮≥0.04（对应"双方均胜"/"双方均6分"等场景）
+    按 ELO 差距分级的平局覆写阈值。
+    lambda_ratio = max(lh,la)/min(lh,la)，越大越悬殊。
+
+    60场回测校准：
+    - 只调 prob 阈值，uplift=0.04 是可靠信号（动机层确认后才触发）
+    - 大差距降低 prob 门槛（base P(D)本来就低），接近场次提高防假阳性
+    - 第三轮减 prob_th（默契球多）
     """
-    if adj_d >= 0.25 and draw_uplift >= 0.04:
+    if lambda_ratio >= 3.0:
+        prob_threshold = 0.15     # 大差距：base P(D)极低，降低门槛
+    elif lambda_ratio >= 1.5:
+        prob_threshold = 0.22     # 中等差距
+    else:
+        prob_threshold = 0.28     # 实力接近：提高门槛减少假阳性
+
+    if matchday >= 3:
+        prob_threshold -= 0.03    # 第三轮默契球多
+
+    if adj_d >= prob_threshold and draw_uplift >= 0.04:
         return "DRAW"
     return current_result
 
@@ -216,9 +231,12 @@ if __name__ == "__main__":
             final_h, final_d, final_a = adj_h, adj_d, adj_a
             has_odds = False
 
-        # 平局检测器覆写
+        # 平局检测器覆写（分级阈值）
         adj_result_raw = "HOME" if final_h >= max(final_d, final_a) else ("DRAW" if final_d >= max(final_h, final_a) else "AWAY")
-        adj_result = apply_draw_detector(adj_result_raw, final_d, adj.draw_uplift)
+        lambda_ratio = max(lh, la) / min(lh, la) if min(lh, la) > 0 else 1.0
+        # 按日期推断轮次：R1=6/11-17, R2=6/18-23, R3=6/24+
+        md = 1 if match_date <= "2026-06-17" else (2 if match_date <= "2026-06-23" else 3)
+        adj_result = apply_draw_detector(adj_result_raw, final_d, adj.draw_uplift, lambda_ratio, md)
         draw_override = (adj_result == "DRAW" and adj_result_raw != "DRAW")
         if draw_override:
             ph, pa = 1, 1  # 覆写为平局比分（泊松模式下几乎总是1:1）

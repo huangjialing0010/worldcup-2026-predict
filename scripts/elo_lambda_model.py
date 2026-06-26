@@ -240,14 +240,27 @@ for _, row in wc_df.iterrows():
     # Step 3: Apply motivation adjustments
     adj_h, adj_d, adj_a = apply_motivation((p_h, p_d, p_a), adj)
 
-    # Step 4: Draw detector (same as predict_with_context.py)
+    # Step 4: Draw detector — tiered prob threshold, unified uplift threshold
     result = "H" if adj_h >= max(adj_d, adj_a) else ("D" if adj_d >= max(adj_h, adj_a) else "A")
-    if adj_d >= DRAW_PROB_THRESHOLD and adj.draw_uplift >= 0.04:
+    h_md = team_games.get(home, 0) + 1
+    lambda_ratio = max(lh, la) / min(lh, la) if min(lh, la) > 0 else 1.0
+
+    # Only vary prob threshold — uplift=0.04 is the reliable signal
+    if lambda_ratio >= 3.0:
+        prob_th = 0.15     # big gap: lower bar, base P(D) is very low
+    elif lambda_ratio >= 1.5:
+        prob_th = 0.22     # medium gap
+    else:
+        prob_th = 0.28     # close matchup: higher bar to avoid false positives
+
+    # Round 3 has more draws (collusion, resting stars)
+    if h_md >= 3:
+        prob_th -= 0.03
+
+    if adj_d >= prob_th and adj.draw_uplift >= 0.04:
         result = "D"
 
     # ELO-based draw override: only for round 1 (no motivation context yet)
-    # For md>=2, the motivation draw detector + team draw propensity handle it
-    h_md = team_games.get(home, 0) + 1
     elo_gap = abs(e_h - e_a)
     if h_md == 1 and elo_gap < DRAW_ELO_THRESHOLD and p_d >= DRAW_PROB_THRESHOLD:
         result = "D"
