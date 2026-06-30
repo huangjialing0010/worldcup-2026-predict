@@ -199,6 +199,40 @@ REMAINING = get_remaining_matches()
 
 
 # ============================================================
+# 淘汰赛概率约束
+# ============================================================
+# 淘汰赛弱队可放弃进攻拖入低比分僵局 → 平局存在与实力差无关的结构性下限
+# 75场校准: P(H)>80%时实际H胜率62.5%, P(D)<15%时实际平局率30-50%
+KO_DRAW_FLOOR = 0.25    # 淘汰赛平局不低于25%
+KO_FAVORITE_CAP = 0.68  # 淘汰赛任一方90分钟胜率不高于68%
+
+def apply_knockout_constraint(p_h, p_d, p_a):
+    """淘汰赛概率硬约束：平局下限 + 强队上限，重归一化"""
+    # 平局下限
+    if p_d < KO_DRAW_FLOOR:
+        excess = KO_DRAW_FLOOR - p_d
+        p_d = KO_DRAW_FLOOR
+        scale = (1 - KO_DRAW_FLOOR) / (p_h + p_a)
+        p_h *= scale
+        p_a *= scale
+    # 主胜上限
+    if p_h > KO_FAVORITE_CAP:
+        excess = p_h - KO_FAVORITE_CAP
+        p_h = KO_FAVORITE_CAP
+        scale = (1 - KO_FAVORITE_CAP) / (p_d + p_a)
+        p_d *= scale
+        p_a *= scale
+    # 客胜上限
+    if p_a > KO_FAVORITE_CAP:
+        excess = p_a - KO_FAVORITE_CAP
+        p_a = KO_FAVORITE_CAP
+        scale = (1 - KO_FAVORITE_CAP) / (p_h + p_d)
+        p_h *= scale
+        p_d *= scale
+    return p_h, p_d, p_a
+
+
+# ============================================================
 # 主程序
 # ============================================================
 if __name__ == "__main__":
@@ -208,6 +242,8 @@ if __name__ == "__main__":
 
     lines = []
     for home, away, match_date, group, round_label in REMAINING:
+        is_knockout = "/" in str(round_label)  # "1/16决赛", "1/8决赛" etc.
+
         # 动机分析（提前获取 goals_mod）
         adj = analyze_match(home, away, match_date, group, wc_df, last_play)
 
@@ -241,6 +277,14 @@ if __name__ == "__main__":
         else:
             final_h, final_d, final_a = adj_h, adj_d, adj_a
             has_odds = False
+
+        # 淘汰赛概率约束（平局下限+强队上限）
+        ko_constrained = False
+        pre_ko_h, pre_ko_d, pre_ko_a = final_h, final_d, final_a
+        if is_knockout:
+            final_h, final_d, final_a = apply_knockout_constraint(final_h, final_d, final_a)
+            if (final_h, final_d, final_a) != (pre_ko_h, pre_ko_d, pre_ko_a):
+                ko_constrained = True
 
         # 平局检测器覆写（分级阈值）
         adj_result_raw = "HOME" if final_h >= max(final_d, final_a) else ("DRAW" if final_d >= max(final_h, final_a) else "AWAY")
@@ -292,6 +336,7 @@ if __name__ == "__main__":
             "final_result": result_label(adj_result),
             "odds_blend": "Y" if has_odds else "N",
             "draw_override": "Y" if draw_override else "",
+            "ko_constrained": "Y" if ko_constrained else "",
             "risk": risk_level,
             "risk_flags": " | ".join(adj.risk_flags[:3]) if adj.risk_flags else "",
             "notes": " | ".join(adj.notes[:2]) if adj.notes else "",
@@ -304,7 +349,9 @@ if __name__ == "__main__":
         print(f"  DC基础: {result_label(result)} {ph}:{pa}  λ{lh:.1f}:{la:.1f}  H{p_h:.0%}/D{p_d:.0%}/A{p_a:.0%}")
         motiv_str = f" 动机修正: {result_label(adj_result)}  H{adj_h:.0%}/D{adj_d:.0%}/A{adj_a:.0%}"
         if has_odds:
-            motiv_str += f"  赔率融合: H{final_h:.0%}/D{final_d:.0%}/A{final_a:.0%}"
+            motiv_str += f"  融合: H{pre_ko_h:.0%}/D{pre_ko_d:.0%}/A{pre_ko_a:.0%}"
+        if ko_constrained:
+            motiv_str += f"  →KO约束: H{final_h:.0%}/D{final_d:.0%}/A{final_a:.0%}"
         if draw_override:
             motiv_str += "  [DRAW覆写]"
         motiv_str += f"  {risk_level}" + (f" 进球×{adj.expected_goals_mod:.2f}" if adj.expected_goals_mod != 1.0 else "")

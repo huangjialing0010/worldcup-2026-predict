@@ -1,4 +1,4 @@
-date,group,round_label,home_team,away_team
+﻿date,group,round_label,home_team,away_team
 2026-06-11,A,第一轮,Mexico,South Africa
 2026-06-11,A,第一轮,South Korea,Czech Republic
 2026-06-12,B,第一轮,Canada,Bosnia and Herzegovina
@@ -71,3 +71,19 @@ date,group,round_label,home_team,away_team
 2026-06-26,K,第三轮,DR Congo,Uzbekistan
 2026-06-26,L,第三轮,Panama,England
 2026-06-26,L,第三轮,Croatia,Ghana
+2026-06-28,R32,1/16决赛,South Africa,Canada
+2026-06-29,R32,1/16决赛,Germany,Paraguay
+2026-06-29,R32,1/16决赛,Netherlands,Morocco
+2026-06-29,R32,1/16决赛,Brazil,Japan
+2026-06-30,R32,1/16决赛,France,Sweden
+2026-06-30,R32,1/16决赛,Ivory Coast,Norway
+2026-06-30,R32,1/16决赛,Mexico,Ecuador
+2026-07-01,R32,1/16决赛,England,DR Congo
+2026-07-01,R32,1/16决赛,USA,Bosnia and Herzegovina
+2026-07-01,R32,1/16决赛,Belgium,Senegal
+2026-07-02,R32,1/16决赛,Portugal,Croatia
+2026-07-02,R32,1/16决赛,Spain,Austria
+2026-07-02,R32,1/16决赛,Switzerland,Algeria
+2026-07-03,R32,1/16决赛,Argentina,Cape Verde
+2026-07-03,R32,1/16决赛,Colombia,Ghana
+2026-07-03,R32,1/16决赛,Australia,Egypt
